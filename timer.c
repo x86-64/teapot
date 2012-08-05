@@ -161,7 +161,6 @@ void setTimer(uint32_t delay)
 	// An interrupt would make all our timing calculations invalid,
 	// so stop that here.
 	cli();
-	CLI_SEI_BUG_MEMORY_BARRIER();
 
 	// Assume all steps belong to one move. Within one move the delay is
 	// from one step to the next one, which should be more or less the same

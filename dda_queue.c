@@ -48,7 +48,6 @@ uint8_t queue_full() {
 uint8_t queue_empty() {
 	uint8_t save_reg = SREG;
 	cli();
-	CLI_SEI_BUG_MEMORY_BARRIER();
 	
 	uint8_t result = ((mb_tail == mb_head) && (movebuffer[mb_tail].live == 0))?255:0;
 
@@ -123,7 +122,6 @@ void enqueue_home(TARGET *t, uint8_t endstop_check, uint8_t endstop_stop_cond) {
 	
 	uint8_t save_reg = SREG;
 	cli();
-	CLI_SEI_BUG_MEMORY_BARRIER();
 
 	uint8_t isdead = (movebuffer[mb_tail].live == 0);
 	
@@ -182,7 +180,6 @@ void queue_flush() {
 	// inside an interrupt disabled block...
 	uint8_t save_reg = SREG;
 	cli();
-	CLI_SEI_BUG_MEMORY_BARRIER();
 	
 	// flush queue
 	mb_tail = mb_head;
