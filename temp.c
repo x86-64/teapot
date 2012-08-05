@@ -13,9 +13,6 @@
 #include	"arduino.h"
 #include	"delay.h"
 #include	"debug.h"
-#ifndef	EXTRUDER
-	#include	"sersendf.h"
-#endif
 #include	"heater.h"
 
 #ifdef	TEMP_MAX6675

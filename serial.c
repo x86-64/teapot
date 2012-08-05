@@ -269,3 +269,274 @@ void serial_writestr_P(PGM_P data)
 	while ((r = pgm_read_byte(&data[i++])))
 		serial_writechar(r);
 }
+
+/** \file sermsg.c
+	\brief primitives for sending numbers over the serial link
+*/
+
+#include	"serial.h"
+
+/** write a single hex digit
+	\param v hex digit to write, higher nibble ignored
+*/
+void serwrite_hex4(uint8_t v) {
+	v &= 0xF;
+	if (v < 10)
+		serial_writechar('0' + v);
+	else
+		serial_writechar('A' - 10 + v);
+}
+
+/** write a pair of hex digits
+	\param v byte to write. One byte gives two hex digits
+*/
+void serwrite_hex8(uint8_t v) {
+	serwrite_hex4(v >> 4);
+	serwrite_hex4(v & 0x0F);
+}
+
+/** write four hex digits
+	\param v word to write
+*/
+void serwrite_hex16(uint16_t v) {
+	serwrite_hex8(v >> 8);
+	serwrite_hex8(v & 0xFF);
+}
+
+/** write eight hex digits
+	\param v long word to write
+*/
+void serwrite_hex32(uint32_t v) {
+	serwrite_hex16(v >> 16);
+	serwrite_hex16(v & 0xFFFF);
+}
+
+/// list of powers of ten, used for dividing down decimal numbers for sending, and also for our crude floating point algorithm
+const uint32_t powers[] = {1, 10, 100, 1000, 10000, 100000, 1000000, 10000000, 100000000, 1000000000};
+
+/** write decimal digits from a long unsigned int
+	\param v number to send
+*/
+void serwrite_uint32(uint32_t v) {
+	uint8_t e, t;
+
+	for (e = 9; e > 0; e--) {
+		if (v >= powers[e])
+			break;
+	}
+
+	do
+	{
+		for (t = 0; v >= powers[e]; v -= powers[e], t++);
+		serial_writechar(t + '0');
+	}
+	while (e--);
+}
+
+/** write decimal digits from a long signed int
+	\param v number to send
+*/
+void serwrite_int32(int32_t v) {
+	if (v < 0) {
+		serial_writechar('-');
+		v = -v;
+	}
+
+	serwrite_uint32(v);
+}
+
+/** write decimal digits from a long unsigned int
+\param v number to send
+*/
+void serwrite_uint32_vf(uint32_t v, uint8_t fp) {
+	uint8_t e, t;
+
+	for (e = 9; e > 0; e--) {
+		if (v >= powers[e])
+			break;
+	}
+
+	if (e < fp)
+		e = fp;
+
+	do
+	{
+		for (t = 0; v >= powers[e]; v -= powers[e], t++);
+		serial_writechar(t + '0');
+		if (e == fp)
+			serial_writechar('.');
+	}
+	while (e--);
+}
+
+/** write decimal digits from a long signed int
+\param v number to send
+*/
+void serwrite_int32_vf(int32_t v, uint8_t fp) {
+	if (v < 0) {
+		serial_writechar('-');
+		v = -v;
+	}
+
+	serwrite_uint32_vf(v, fp);
+}
+
+/** \file sersendf.c
+	\brief Simplified printf implementation
+*/
+
+#include	<stdarg.h>
+#include	<avr/pgmspace.h>
+
+#include	"serial.h"
+
+// void sersendf(char *format, ...) {
+// 	va_list args;
+// 	va_start(args, format);
+//
+// 	uint16_t i = 0;
+// 	uint8_t c, j = 0;
+// 	while ((c = format[i++])) {
+// 		if (j) {
+// 			switch(c) {
+// 				case 'l':
+// 					j = 4;
+// 					break;
+// 				case 'u':
+// 					if (j == 4)
+// 						serwrite_uint32(va_arg(args, uint32_t));
+// 					else
+// 						serwrite_uint16(va_arg(args, uint16_t));
+// 					j = 0;
+// 					break;
+// 				case 'd':
+// 					if (j == 4)
+// 						serwrite_int32(va_arg(args, int32_t));
+// 					else
+// 						serwrite_int16(va_arg(args, int16_t));
+// 					j = 0;
+// 					break;
+// 				case 'p':
+// 				case 'x':
+// 					serial_writestr_P(str_ox);
+// 					if (j == 4)
+// 						serwrite_hex32(va_arg(args, uint32_t));
+// 					else
+// 						serwrite_hex16(va_arg(args, uint16_t));
+// 					j = 0;
+// 					break;
+// 				case 'c':
+// 					serial_writechar(va_arg(args, uint16_t));
+// 					j = 0;
+// 					break;
+// 				case 's':
+// 					serial_writestr(va_arg(args, uint8_t *));
+// 					j = 0;
+// 					break;
+// 				default:
+// 					serial_writechar(c);
+// 					j = 0;
+// 					break;
+// 			}
+// 		}
+// 		else {
+// 			if (c == '%') {
+// 				j = 2;
+// 			}
+// 			else {
+// 				serial_writechar(c);
+// 			}
+// 		}
+// 	}
+// 	va_end(args);
+// }
+
+/** \brief Simplified printf
+	\param format pointer to output format specifier string stored in FLASH.
+	\param ... output data
+
+	Implements only a tiny subset of printf's format specifiers :-
+
+	%[ls][udcx%]
+
+	l - following data is (32 bits)\n
+	s - following data is short (8 bits)\n
+	none - following data is 16 bits.
+
+	u - unsigned int\n
+	d - signed int\n
+	q - signed int with decimal before the third digit from the right\n
+	c - character\n
+	x - hex\n
+	% - send a literal % character
+
+	Example:
+
+	\code sersendf_P(PSTR("X:%ld Y:%ld temp:%u.%d flags:%sx Q%su/%su%c\n"), target.X, target.Y, current_temp >> 2, (current_temp & 3) * 25, dda.allflags, mb_head, mb_tail, (queue_full()?'F':(queue_empty()?'E':' '))) \endcode
+*/
+void sersendf_P(PGM_P format, ...) {
+	va_list args;
+	va_start(args, format);
+
+	uint16_t i = 0;
+	uint8_t c = 1, j = 0;
+	while ((c = pgm_read_byte(&format[i++]))) {
+		if (j) {
+			switch(c) {
+				case 's':
+					j = 1;
+					break;
+				case 'l':
+					j = 4;
+					break;
+				case 'u':
+					if (j == 4)
+						serwrite_uint32(va_arg(args, uint32_t));
+					else
+						serwrite_uint16(va_arg(args, uint16_t));
+					j = 0;
+					break;
+				case 'd':
+					if (j == 4)
+						serwrite_int32(va_arg(args, int32_t));
+					else
+						serwrite_int16(va_arg(args, int16_t));
+					j = 0;
+					break;
+				case 'c':
+					serial_writechar(va_arg(args, uint16_t));
+					j = 0;
+					break;
+				case 'x':
+					serial_writestr_P(PSTR("0x"));
+					if (j == 4)
+						serwrite_hex32(va_arg(args, uint32_t));
+					else if (j == 1)
+						serwrite_hex8(va_arg(args, uint16_t));
+					else
+						serwrite_hex16(va_arg(args, uint16_t));
+					j = 0;
+					break;
+/*				case 'p':
+					serwrite_hex16(va_arg(args, uint16_t));*/
+				case 'q':
+					serwrite_int32_vf(va_arg(args, int32_t), 3);
+					j = 0;
+					break;
+				default:
+					serial_writechar(c);
+					j = 0;
+					break;
+			}
+		}
+		else {
+			if (c == '%') {
+				j = 2;
+			}
+			else {
+				serial_writechar(c);
+			}
+		}
+	}
+	va_end(args);
+}

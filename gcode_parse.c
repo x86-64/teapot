@@ -7,11 +7,9 @@
 #include	<string.h>
 
 #include	"serial.h"
-#include	"sermsg.h"
 #include	"dda_queue.h"
 #include	"debug.h"
 #include	"heater.h"
-#include	"sersendf.h"
 
 #include	"gcode_process.h"
 

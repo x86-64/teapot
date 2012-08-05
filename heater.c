@@ -13,10 +13,6 @@
 #include	"temp.h"
 #include	"crc.h"
 
-#ifndef	EXTRUDER
-	#include	"sersendf.h"
-#endif
-
 /// \struct heater_definition_t
 /// \brief simply holds pinout data- port, pin, pwm channel if used
 typedef struct {

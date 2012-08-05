@@ -10,10 +10,8 @@
 #include	"config.h"
 #include	"timer.h"
 #include	"serial.h"
-#include	"sermsg.h"
 #include	"temp.h"
 #include	"delay.h"
-#include	"sersendf.h"
 #include	"memory_barrier.h"
 
 /// movebuffer head pointer. Points to the last move in the queue.
