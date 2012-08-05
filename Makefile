@@ -94,7 +94,7 @@ PROGID = stk500v2
 PROGRAM = mendel
 
 FEATURES_ENABLED=$(shell find configs/ -type f -iname '*.c') 
-SOURCES = $(FEATURES_ENABLED) $(PROGRAM).c gcode_parse.c gcode_process.c dda.c dda_maths.c dda_queue.c timer.c temp.c sermsg.c debug.c sersendf.c heater.c pinio.c clock.c home.c crc.c delay.c
+SOURCES = $(FEATURES_ENABLED) $(PROGRAM).c gcode_parse.c gcode_process.c dda.c dda_maths.c dda_queue.c timer.c temp.c sermsg.c debug.c sersendf.c heater.c pinio.c home.c crc.c delay.c
 
 ARCH = avr-
 CC = $(ARCH)gcc

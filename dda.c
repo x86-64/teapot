@@ -617,14 +617,14 @@ void dda_step(DDA *dda) {
 			move_state.c = (int32_t)move_state.c - ((int32_t)(move_state.c * 2) / (int32_t)move_state.n);
 		}
 		move_state.step_no++;
-// Print the number of steps actually needed for ramping up
-// Needed for comparing the number with the one calculated in dda_create()
-//static char printed = 0;
-//if (printed == 0 && dda->c_min >= move_state.c) {
-//  sersendf_P(PSTR("speedup %lu steps\n"), move_state.step_no);
-//  printed = 1;
-//}
-//if (move_state.step_no < 3) printed = 0;
+		// Print the number of steps actually needed for ramping up
+		// Needed for comparing the number with the one calculated in dda_create()
+		//static char printed = 0;
+		//if (printed == 0 && dda->c_min >= move_state.c) {
+		//  sersendf_P(PSTR("speedup %lu steps\n"), move_state.step_no);
+		//  printed = 1;
+		//}
+		//if (move_state.step_no < 3) printed = 0;
 
 		// debug ramping algorithm
 		// raise this 10 for higher speeds to avoid flooding the serial line

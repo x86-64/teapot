@@ -20,7 +20,6 @@
 #include	"sersendf.h"
 #include	"pinio.h"
 #include	"debug.h"
-#include	"clock.h"
 #include	"config.h"
 #include	"home.h"
 
