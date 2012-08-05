@@ -45,7 +45,6 @@
 #include	"pinio.h"
 #include	"arduino.h"
 #include	"clock.h"
-#include	"intercom.h"
 
 /// initialise all I/O - set pins as input or output, turn off unused subsystems, etc
 void io_init(void) {
@@ -255,14 +254,6 @@ void io_init(void) {
 		WRITE(MOSI, 1);				SET_OUTPUT(MOSI);
 		WRITE(MISO, 1);				SET_INPUT(MISO);
 		WRITE(SS, 1);					SET_OUTPUT(SS);
-	#endif
-
-	#ifdef TEMP_INTERCOM
-		// Enable the RS485 transceiver
-		SET_OUTPUT(RX_ENABLE_PIN);
-		SET_OUTPUT(TX_ENABLE_PIN);
-		WRITE(RX_ENABLE_PIN,0);
-		disable_transmit();
 	#endif
 }
 

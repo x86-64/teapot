@@ -17,9 +17,6 @@
 	#include	"sersendf.h"
 #endif
 #include	"heater.h"
-#ifdef	TEMP_INTERCOM
-	#include	"intercom.h"
-#endif
 
 #ifdef	TEMP_MAX6675
 #endif
@@ -71,7 +68,7 @@ struct {
 	uint16_t					next_read_time; ///< how long until we can read this sensor again?
 } temp_sensors_runtime[NUM_TEMP_SENSORS];
 
-/// set up temp sensors. Currently only the 'intercom' sensor needs initialisation.
+/// set up temp sensors. 
 void temp_init() {
 	temp_sensor_t i;
 	for (i = 0; i < NUM_TEMP_SENSORS; i++) {
@@ -92,13 +89,6 @@ void temp_init() {
 			// handled by analog_init()
 /*			case TT_AD595:
 				break;*/
-		#endif
-
-		#ifdef	TEMP_INTERCOM
-			case TT_INTERCOM:
-				intercom_init();
-				send_temperature(0, 0);
-				break;
 		#endif
 
 		#ifdef  TEMP_NONE
@@ -254,15 +244,6 @@ void temp_sensor_tick() {
 					break
 				#endif	/* TEMP_PT100 */
 
-				#ifdef	TEMP_INTERCOM
-				case TT_INTERCOM:
-					temp = read_temperature(temp_sensors[i].temp_pin);
-
-					temp_sensors_runtime[i].next_read_time = 25;
-
-					break;
-				#endif	/* TEMP_INTERCOM */
-
 				#ifdef	TEMP_NONE
 				case TT_NONE:
 					temp_sensors_runtime[i].last_read_temp =
@@ -329,10 +310,6 @@ void temp_set(temp_sensor_t index, uint16_t temperature) {
 	if (temp_sensors_runtime[index].target_temp != temperature) {
 		temp_sensors_runtime[index].target_temp = temperature;
 		temp_sensors_runtime[index].temp_residency = 0;
-	#ifdef	TEMP_INTERCOM
-		if (temp_sensors[index].temp_type == TT_INTERCOM)
-			send_temperature(temp_sensors[index].temp_pin, temperature);
-	#endif
 	}
 }
 

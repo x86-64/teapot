@@ -13,9 +13,6 @@
 #include	"debug.h"
 #include	"heater.h"
 #include	"serial.h"
-#ifdef	TEMP_INTERCOM
-	#include	"intercom.h"
-#endif
 #include	"memory_barrier.h"
 
 /*!	do stuff every 1/4 second
@@ -58,9 +55,6 @@ void clock_250ms() {
 		/*		if (temp_get_target())
 		temp_print();*/
 	}
-	#ifdef	TEMP_INTERCOM
-	start_send();
-	#endif
 }
 
 /*! do stuff every 10 milliseconds

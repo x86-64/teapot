@@ -346,7 +346,6 @@ DEFINE_TEMP_SENSOR(bed,       TT_INTERCOM,    1,         0)
 
 // #define	HEATER_EXTRUDER HEATER_extruder
 
-// workaround for heated bed over intercom. HEATER_BED is the intercom temp channel number.
 #define HEATER_BED 1
 
 
