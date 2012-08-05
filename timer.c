@@ -46,6 +46,20 @@ volatile uint8_t	clock_flag_10ms = 0;
 volatile uint8_t	clock_flag_250ms = 0;
 volatile uint8_t	clock_flag_1s = 0;
 
+/// initialise timer and enable system clock interrupt.
+/// step interrupt is enabled later when we start using it
+void timer_init()
+{
+	// no outputs
+	TCCR1A = 0;
+	// Normal Mode
+	TCCR1B = MASK(CS10);
+	// set up "clock" comparator for first tick
+	OCR1B = TICK_TIME & 0xFFFF;
+	// enable interrupt
+	TIMSK1 = MASK(OCIE1B);
+}
+
 /// comparator B is the system clock, happens every TICK_TIME
 ISR(TIMER1_COMPB_vect) {
 	// save status register
@@ -79,6 +93,7 @@ ISR(TIMER1_COMPB_vect) {
 	MEMORY_BARRIER();
 	SREG = sreg_save;
 }
+
 
 #ifdef	HOST
 
@@ -123,23 +138,7 @@ ISR(TIMER1_COMPA_vect) {
 	MEMORY_BARRIER();
 	SREG = sreg_save;
 }
-#endif /* ifdef HOST */
 
-/// initialise timer and enable system clock interrupt.
-/// step interrupt is enabled later when we start using it
-void timer_init()
-{
-	// no outputs
-	TCCR1A = 0;
-	// Normal Mode
-	TCCR1B = MASK(CS10);
-	// set up "clock" comparator for first tick
-	OCR1B = TICK_TIME & 0xFFFF;
-	// enable interrupt
-	TIMSK1 = MASK(OCIE1B);
-}
-
-#ifdef	HOST
 /*! Specify how long until the step timer should fire.
 	\param delay in CPU ticks
 
