@@ -7,7 +7,6 @@
 #include	"pinio.h"
 #include	"sersendf.h"
 #include	"dda_queue.h"
-#include	"watchdog.h"
 #include	"temp.h"
 #include	"timer.h"
 #include	"debug.h"
@@ -63,7 +62,9 @@ void clock_250ms() {
 */
 void clock_10ms() {
 	// reset watchdog
-	wd_reset();
+	//wd_reset();
+	
+	// call callbacks
 
 	temp_tick();
 

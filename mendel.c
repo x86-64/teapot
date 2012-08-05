@@ -28,7 +28,6 @@
 #include	<avr/interrupt.h>
 
 #include	"config.h"
-#include	"fuses.h"
 
 #include	"serial.h"
 #include	"dda_queue.h"
@@ -37,11 +36,9 @@
 #include	"timer.h"
 #include	"temp.h"
 #include	"sermsg.h"
-#include	"watchdog.h"
 #include	"debug.h"
 #include	"sersendf.h"
 #include	"heater.h"
-#include	"analog.h"
 #include	"pinio.h"
 #include	"arduino.h"
 #include	"clock.h"
@@ -259,8 +256,10 @@ void io_init(void) {
 
 /// Startup code, run when we come out of reset
 void init(void) {
+	// call init callback
+	//
 	// set up watchdog
-	wd_init();
+	//wd_init();
 
 	// set up serial
 	serial_init();
@@ -282,7 +281,7 @@ void init(void) {
 
 	// start up analog read interrupt loop,
 	// if any of the temp sensors in your config.h use analog interface
-	analog_init();
+	//analog_init();
 
 	// set up temperature inputs
 	temp_init();
@@ -291,7 +290,7 @@ void init(void) {
 	sei();
 
 	// reset watchdog
-	wd_reset();
+	//wd_reset();
 
 	// say hi to host
 	serial_writestr_P(PSTR("start\nok\n"));

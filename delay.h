@@ -3,7 +3,6 @@
 
 #include	<stdint.h>
 #include	<util/delay_basic.h>
-#include	"watchdog.h"
 
 #define		WAITING_DELAY		100
 
@@ -30,10 +29,10 @@ inline void delay(uint32_t d) {
 		_delay(d);
 	}
 	else {
-		wd_reset();
+		//wd_reset();
 		if( d ) {
 			_delay_loop_2(d * (F_CPU / 4000000L));
-			wd_reset();
+			//wd_reset();
 		}
 	}
 }

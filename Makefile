@@ -93,7 +93,8 @@ PROGID = stk500v2
 
 PROGRAM = mendel
 
-SOURCES = $(PROGRAM).c gcode_parse.c gcode_process.c dda.c dda_maths.c dda_queue.c timer.c temp.c sermsg.c watchdog.c debug.c sersendf.c heater.c analog.c pinio.c clock.c home.c crc.c delay.c
+FEATURES_ENABLED=$(shell find configuration/ -type f -iname '*.c') 
+SOURCES = $(FEATURES_ENABLED) $(PROGRAM).c gcode_parse.c gcode_process.c dda.c dda_maths.c dda_queue.c timer.c temp.c sermsg.c debug.c sersendf.c heater.c pinio.c clock.c home.c crc.c delay.c
 
 ARCH = avr-
 CC = $(ARCH)gcc
@@ -103,6 +104,7 @@ OBJCOPY = $(ARCH)objcopy
 OPTIMIZE = -Os -ffunction-sections -finline-functions-called-once -mcall-prologues
 # OPTIMIZE = -O0
 CFLAGS = -g -Wall -Wstrict-prototypes $(OPTIMIZE) -mmcu=$(MCU_TARGET) $(DEFS) -std=gnu99 -funsigned-char -funsigned-bitfields -fpack-struct -fshort-enums -save-temps -Winline
+CFLAGS+= -I./ -I../ -I chips/# for features files
 LDFLAGS = -Wl,--as-needed -Wl,--gc-sections
 LIBS = -lm
 LIBDEPS =
@@ -128,7 +130,7 @@ OBJ = $(patsubst %.c,%.o,${SOURCES})
 .PHONY: all program clean size subdirs doc functionsbysize
 .PRECIOUS: %.o %.elf
 
-all: config.h subdirs $(PROGRAM).hex $(PROGRAM).lst $(PROGRAM).sym size
+all: subdirs $(PROGRAM).hex $(PROGRAM).lst $(PROGRAM).sym size
 
 $(PROGRAM).elf: $(LIBDEPS)
 
@@ -137,7 +139,7 @@ subdirs:
 	  $(MAKE) -C $$dir; \
 	done
 
-program: $(PROGRAM).hex config.h
+program: $(PROGRAM).hex
 	stty $(PROGBAUD) raw ignbrk hup < $(PROGPORT)
 	@sleep 0.1
 	@stty $(PROGBAUD) raw ignbrk hup < $(PROGPORT)
@@ -146,6 +148,7 @@ program: $(PROGRAM).hex config.h
 
 clean: clean-subdirs
 	rm -rf *.o *.elf *.lst *.map *.sym *.lss *.eep *.srec *.bin *.hex *.al *.i *.s *~
+	cd configuration/ && rm -rf *.o *.elf *.lst *.map *.sym *.lss *.eep *.srec *.bin *.hex *.al *.i *.s *~
 
 clean-subdirs:
 	@for dir in $(SUBDIRS); do \
@@ -158,20 +161,13 @@ size: $(PROGRAM).elf
 	@$(OBJDUMP) -h $^ | perl -MPOSIX -ne '/.(data|bss)\s+([0-9a-f]+)/ && do { $$a += eval "0x$$2" }; END { printf "    RAM   : %5d bytes          %3d%%      %3d%%       %3d%%      %3d%%\n", $$a, ceil($$a * 100 / (1 * 1024)), ceil($$a * 100 / (2 * 1024)),ceil($$a * 100 / (4 * 1024)), ceil($$a * 100 / (8 * 1024)) }'
 	@$(OBJDUMP) -h $^ | perl -MPOSIX -ne '/.(eeprom)\s+([0-9a-f]+)/ && do { $$a += eval "0x$$2" }; END { printf "    EEPROM: %5d bytes          %3d%%      %3d%%       %3d%%      %3d%%\n", $$a, ceil($$a * 100 / (1 * 1024)), ceil($$a * 100 / (2 * 1024)), ceil($$a * 100 / (2 * 1024)), ceil($$a * 100 / (4 * 1024)) }'
 
-config.h: config.default.h
-	@echo "config.default.h is more recent than config.h. You likely want to"
-	@echo "review (edit) config.h to match new features in config.default.h."
-	@echo "To view the differences, run: diff -bBEu config.h config.default.h"
-	@echo "If you just want to get rid of this message, run: touch config.h"
-	@false
-
 doc: Doxyfile *.c *.h
 	doxygen $<
 
 functionsbysize: $(OBJ)
 	@avr-objdump -h $^ | grep '\.text\.' | perl -ne '/\.text\.(\S+)\s+([0-9a-f]+)/ && printf "%u\t%s\n", eval("0x$$2"), $$1;' | sort -n
 
-%.o: %.c config.h Makefile
+%.o: %.c Makefile
 	@echo "  CC        $@"
 	@$(CC) -c $(CFLAGS) -Wa,-adhlns=$(<:.c=.al) -o $@ $(subst .o,.c,$@)
 

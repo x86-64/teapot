@@ -11,7 +11,6 @@
 
 #include	"dda.h"
 #include	"dda_queue.h"
-#include	"watchdog.h"
 #include	"delay.h"
 #include	"serial.h"
 #include	"sermsg.h"
@@ -380,8 +379,9 @@ void process_gcode_command() {
 				queue_flush();
 				power_off();
 				cli();
-				for (;;)
-					wd_reset();
+				// ESTOP
+				//for (;;)
+				//	wd_reset();
 				break;
 
 			case 6:

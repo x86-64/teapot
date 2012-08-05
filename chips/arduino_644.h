@@ -1,3 +1,17 @@
+	#ifdef _INCLUDE_FUSES
+		#if defined (__AVR_ATmega644__) || defined (__AVR_ATmega644P__)
+		FUSES = {
+			.low = FUSE_CKSEL3 & FUSE_SUT0,
+			.high = FUSE_SPIEN & FUSE_BOOTSZ0 & FUSE_BOOTSZ1,
+			.extended = EFUSE_DEFAULT,
+		};
+		#endif
+	#endif
+#define	REFERENCE_AREF	0
+#define	REFERENCE_AVCC	64
+#define	REFERENCE_1V1		128
+#define	REFERENCE_2V56	192
+
 // UART
 #define	RXD					DIO8
 #define	TXD					DIO9

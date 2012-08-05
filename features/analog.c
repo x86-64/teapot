@@ -1,34 +1,28 @@
-#include	"analog.h"
+#include	"config.h"
+
+API void analog_init(void);
+API uint16_t analog_read(uint8_t channel);
+API void analog_usepin(uint8_t pin);
+
 
 /** \file
 	\brief Analog subsystem
 */
 
-#include "temp.h"
-
 #include	<avr/interrupt.h>
 #include	"memory_barrier.h"
 
-/* OR-combined mask of all channels */
-#undef DEFINE_TEMP_SENSOR
-//! automagically generate analog_mask from DEFINE_TEMP_SENSOR entries in config.h
-#define DEFINE_TEMP_SENSOR(name, type, pin, additional) | (((type == TT_THERMISTOR) || (type == TT_AD595)) ? 1 << (pin) : 0)
-
-#ifdef	AIO8_PIN
-	static const uint16_t analog_mask = 0
-#else
-	static const uint8_t analog_mask = 0
+#ifndef	REFERENCE
+#error define REFERENCE in your arduino_*.h
 #endif
 
-#include "config.h"
-;
-#undef DEFINE_TEMP_SENSOR
-
 #ifdef AIO8_PIN
+	static uint16_t analog_mask = 0;
 	#define	AINDEX_MASK	0x1F
 	#define	AINDEX_MAX 15
 	#define	AINDEX_CURRENT ((ADMUX & 0x07) | ((ADCSRB & MASK(MUX5))?0x08:0))
 #else
+	static uint8_t analog_mask = 0;
 	#define	AINDEX_MASK	0x0F
 	#define	AINDEX_MAX 7
 	#define	AINDEX_CURRENT (ADMUX & 0x07)
@@ -36,6 +30,7 @@
 
 static uint8_t adc_counter;
 static volatile uint16_t adc_result[AINDEX_MAX + 1] __attribute__ ((__section__ (".bss")));
+
 
 //! Configure all registers, start interrupt loop
 void analog_init() {
@@ -137,3 +132,10 @@ uint16_t	analog_read(uint8_t channel) {
 		return 0;
 	}
 }
+
+/*! Say to analog feature that we want to read this pin
+ */
+void analog_usepin(uint8_t pin){
+	analog_mask |= 1 << pin;
+}
+

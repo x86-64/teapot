@@ -1,3 +1,23 @@
+	#ifdef _INCLUDE_FUSES
+		#if defined (__AVR_ATmega168__)
+		FUSES = {
+			.low = FUSE_CKSEL3 & FUSE_SUT0,
+			.high = FUSE_SPIEN,
+			.extended = FUSE_BOOTSZ1 & FUSE_BOOTSZ0,
+		};
+		#elif defined (__AVR_ATmega328P__)
+		FUSES = {
+			.low = FUSE_CKSEL3 & FUSE_SUT0,
+			.high = FUSE_SPIEN & FUSE_BOOTSZ0 & FUSE_BOOTSZ1,
+			.extended = EFUSE_DEFAULT,
+		};
+		#endif
+	#endif
+
+#define	REFERENCE_AREF	0
+#define	REFERENCE_AVCC	64
+#define	REFERENCE_1V1		192
+
 // UART
 #define	RXD					DIO0
 #define	TXD					DIO1

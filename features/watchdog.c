@@ -1,4 +1,11 @@
-#include	"watchdog.h"
+#include "config.h"
+
+// CONFIGURATION
+
+//#define USE_WATCHDOG
+
+// END OF CONFIGURATION
+
 
 /** \file
 	\brief Watchdog - reset if main loop doesn't run for too long
@@ -15,11 +22,6 @@
 #include	<avr/wdt.h>
 #include	<avr/interrupt.h>
 #include	"memory_barrier.h"
-
-#include	"arduino.h"
-#ifndef	EXTRUDER
-	#include	"serial.h"
-#endif
 
 volatile uint8_t	wd_flag = 0;
 
@@ -45,17 +47,6 @@ ISR(WDT_vect) {
 	SREG = sreg_save;
 }
 
-/// intialise watchdog
-void wd_init() {
-	// check if we were reset by the watchdog
-// 	if (mcusr_mirror & MASK(WDRF))
-// 		serial_writestr_P(PSTR("Watchdog Reset!\n"));
-
-	// 0.5s timeout, interrupt and system reset
-	wdt_enable(WDTO_500MS);
-	WDTCSR |= MASK(WDIE);
-}
-
 /// reset watchdog. MUST be called every 0.5s after init or avr will reset.
 void wd_reset() {
 	wdt_reset();
@@ -65,4 +56,20 @@ void wd_reset() {
 	}
 }
 
+/// intialise watchdog
+void wd_init() {
+//      // check if we were reset by the watchdog
+// 	if (mcusr_mirror & MASK(WDRF))
+// 		serial_writestr_P(PSTR("Watchdog Reset!\n"));
+
+	// 0.5s timeout, interrupt and system reset
+	wdt_enable(WDTO_500MS);
+	WDTCSR |= MASK(WDIE);
+
+	//core_register(&wd_reset); //call register function
+}
+
+
+#else
+	#define wd_init()  /* empty */
 #endif /* USE_WATCHDOG */

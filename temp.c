@@ -22,12 +22,10 @@
 #endif
 
 #ifdef	TEMP_THERMISTOR
-#include	"analog.h"
 #include	"ThermistorTable.h"
 #endif
 
 #ifdef	TEMP_AD595
-#include	"analog.h"
 #endif
 
 #ifdef TEMP_NONE

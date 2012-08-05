@@ -1,3 +1,5 @@
+#define	REFERENCE_AREF	0
+#define	REFERENCE_AVCC	64
 // SPI
 #define	SCK					DIO9
 #define	MISO				DIO11
