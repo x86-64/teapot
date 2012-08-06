@@ -6,6 +6,8 @@
 
 // END OF CONFIGURATION
 
+API void wd_init(void);
+API void wd_reset(void);
 
 /** \file
 	\brief Watchdog - reset if main loop doesn't run for too long
@@ -71,5 +73,7 @@ void wd_init(void) {
 
 
 #else
-	#define wd_init()  /* empty */
+void wd_init(void) {
+	
+}
 #endif /* USE_WATCHDOG */
