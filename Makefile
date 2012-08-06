@@ -146,9 +146,17 @@ program: $(PROGRAM).hex
 	$(AVRDUDE) -c$(PROGID) $(PROGBAUD_FLAG) -p$(MCU_TARGET) -P$(PROGPORT) -C$(AVRDUDECONF) -U flash:w:$^
 	stty 115200 raw ignbrk -hup -echo ixoff < $(PROGPORT)
 
+$(SOURCES): features.h
+AUTOGEN+=features.h
+features.h:
+	echo "#ifndef FEATURES_H" > features.h
+	echo "#define FEATURES_H" >> features.h
+	grep "API" -rhI configs/ >> features.h
+	echo "#endif" >> features.h
+
 clean: clean-subdirs
-	rm -rf *.o *.elf *.lst *.map *.sym *.lss *.eep *.srec *.bin *.hex *.al *.i *.s *~
-	cd configs/ && rm -rf *.o *.elf *.lst *.map *.sym *.lss *.eep *.srec *.bin *.hex *.al *.i *.s *~
+	rm -rf $(AUTOGEN) *.o *.elf *.lst *.map *.sym *.lss *.eep *.srec *.bin *.hex *.al *.i *.s *~
+	cd configs/ && rm -rf $(AUTOGEN) *.o *.elf *.lst *.map *.sym *.lss *.eep *.srec *.bin *.hex *.al *.i *.s *~
 
 clean-subdirs:
 	@for dir in $(SUBDIRS); do \
