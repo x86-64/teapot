@@ -14,7 +14,7 @@
 #include	"memory_barrier.h"
 
 #include	"arduino.h"
-#include	"config.h"
+#include	"common.h"
 
 #ifdef	HOST
 #include	"dda_queue.h"

@@ -13,7 +13,7 @@
 #include	<avr/interrupt.h>
 #include	"memory_barrier.h"
 
-#include	"config.h"
+#include	"common.h"
 #include	"arduino.h"
 
 /// size of TX and RX buffers. MUST be a \f$2^n\f$ value

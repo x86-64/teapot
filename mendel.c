@@ -11,8 +11,8 @@
 		\subsection step1 Step 1: Download
 			\code git clone git://github.com/triffid/Teacup_Firmware \endcode
 		\subsection step2 Step 2: configure
-			\code cp config.[yourboardhere].h config.h \endcode
-			Edit config.h to suit your machone
+			\code cp config.[yourboardhere].h common.h \endcode
+			Edit common.h to suit your machone
 			Edit Makefile to select the correct chip and programming settings
 		\subsection step3 Step 3: Compile
 			\code make \endcode
@@ -27,7 +27,7 @@
 #include	<avr/io.h>
 #include	<avr/interrupt.h>
 
-#include	"config.h"
+#include	"common.h"
 
 #include	"serial.h"
 #include	"dda_queue.h"
@@ -240,7 +240,7 @@ void io_init(void) {
 	do {
 		#undef	DEFINE_HEATER
 		#define	DEFINE_HEATER(name, pin) WRITE(pin, 0); SET_OUTPUT(pin);
-			#include "config.h"
+			#include "common.h"
 		#undef DEFINE_HEATER
 	} while (0);
 
@@ -279,7 +279,7 @@ void init(void) {
 	dda_init();
 
 	// start up analog read interrupt loop,
-	// if any of the temp sensors in your config.h use analog interface
+	// if any of the temp sensors in your common.h use analog interface
 	//analog_init();
 
 	// set up temperature inputs

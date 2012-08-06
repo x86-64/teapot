@@ -1,4 +1,4 @@
-#include	"config.h"
+#include	"common.h"
 
 API void analog_init(void);
 API uint16_t analog_read(uint8_t channel);

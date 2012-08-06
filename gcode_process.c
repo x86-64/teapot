@@ -18,7 +18,7 @@
 #include	"timer.h"
 #include	"pinio.h"
 #include	"debug.h"
-#include	"config.h"
+#include	"common.h"
 #include	"home.h"
 
 /// the current tool

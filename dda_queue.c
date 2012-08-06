@@ -7,7 +7,7 @@
 #include	<string.h>
 #include	<avr/interrupt.h>
 
-#include	"config.h"
+#include	"common.h"
 #include	"timer.h"
 #include	"serial.h"
 #include	"temp.h"

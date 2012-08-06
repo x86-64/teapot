@@ -3,7 +3,7 @@
 
 #include	<stdint.h>
 
-#include	"config.h"
+#include	"common.h"
 
 #ifdef ACCELERATION_REPRAP
 	#ifdef ACCELERATION_RAMPING

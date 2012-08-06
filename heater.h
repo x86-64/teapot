@@ -1,7 +1,7 @@
 #ifndef	_HEATER_H
 #define	_HEATER_H
 
-#include "config.h"
+#include "common.h"
 #include	<stdint.h>
 #include "temp.h"
 
@@ -12,7 +12,7 @@
 #define DEFINE_HEATER(name, pin) HEATER_ ## name,
 typedef enum
 {
-	#include "config.h"
+	#include "common.h"
 	NUM_HEATERS,
 	HEATER_noheater
 } heater_t;

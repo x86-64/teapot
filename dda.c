@@ -16,7 +16,7 @@
 #include	"dda_queue.h"
 #include	"debug.h"
 #include	"pinio.h"
-#include	"config.h"
+#include	"common.h"
 //#include "graycode.c"
 
 #ifdef	DC_EXTRUDER
