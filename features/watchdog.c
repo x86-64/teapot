@@ -48,7 +48,7 @@ ISR(WDT_vect) {
 }
 
 /// reset watchdog. MUST be called every 0.5s after init or avr will reset.
-void wd_reset() {
+void wd_reset(void) {
 	wdt_reset();
 	if (wd_flag) {
 		WDTCSR |= MASK(WDIE);
@@ -57,7 +57,7 @@ void wd_reset() {
 }
 
 /// intialise watchdog
-void wd_init() {
+void wd_init(void) {
 //      // check if we were reset by the watchdog
 // 	if (mcusr_mirror & MASK(WDRF))
 // 		serial_writestr_P(PSTR("Watchdog Reset!\n"));
@@ -66,7 +66,7 @@ void wd_init() {
 	wdt_enable(WDTO_500MS);
 	WDTCSR |= MASK(WDIE);
 
-	//core_register(&wd_reset); //call register function
+	core_register(EVENT_TICK, &wd_reset);
 }
 
 

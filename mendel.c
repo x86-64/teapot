@@ -342,11 +342,8 @@ void clock_250ms(void) {
 	call from ifclock(CLOCK_FLAG_10MS) in busy loops
 */
 void clock_10ms(void) {
-	// reset watchdog
-	//wd_reset();
+	core_emit(EVENT_TICK_10MS);
 	
-	// call callbacks
-
 	temp_tick();
 
 	ifclock(clock_flag_250ms) {
