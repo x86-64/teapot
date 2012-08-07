@@ -104,7 +104,7 @@ OBJCOPY = $(ARCH)objcopy
 OPTIMIZE = -Os -ffunction-sections -finline-functions-called-once -mcall-prologues
 # OPTIMIZE = -O0
 CFLAGS = -g -Wall -Wstrict-prototypes $(OPTIMIZE) -mmcu=$(MCU_TARGET) $(DEFS) -std=gnu99 -funsigned-char -funsigned-bitfields -fpack-struct -fshort-enums -save-temps -Winline
-CFLAGS+= -I./ -I../ -I chips/# for features files
+CFLAGS+= -I./ -I../ -I chips/ -I libs/ # for features files
 LDFLAGS = -Wl,--as-needed -Wl,--gc-sections
 LIBS = -lm
 LIBDEPS =
