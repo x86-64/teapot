@@ -1,4 +1,40 @@
-#include	"temp.h"
+#include	"common.h"
+
+/*
+NOTES
+
+no point in specifying a port- all the different temp sensors we have must be on a particular port. The MAX6675 must be on the SPI, and the thermistor and AD595 must be on an analog port.
+
+we still need to specify which analog pins we use in machine.h for the analog sensors however, otherwise the analog subsystem won't read them.
+*/
+
+#undef DEFINE_TEMP_SENSOR
+#define DEFINE_TEMP_SENSOR(name, type, pin, additional) TEMP_SENSOR_ ## name,
+typedef enum {
+	#include "common.h"
+	NUM_TEMP_SENSORS,
+	TEMP_SENSOR_none
+} temp_sensor_t;
+#undef DEFINE_TEMP_SENSOR
+
+typedef enum {
+	TT_THERMISTOR,
+	TT_MAX6675,
+	TT_AD595,
+	TT_PT100,
+	TT_INTERCOM,
+	TT_NONE,
+	TT_DUMMY,
+} temp_type_t;
+
+API void temp_init(void);
+API void temp_tick(void);
+API uint8_t	temp_achieved(void);
+API void temp_set(uint8_t index, uint16_t temperature);
+API uint16_t temp_get(uint8_t index);
+API uint8_t temp_all_zero(void);
+API void temp_print(uint8_t index);
+
 
 /** \file
 	\brief Manage temperature sensors
@@ -65,7 +101,7 @@ struct {
 
 /// set up temp sensors. 
 void temp_init() {
-	temp_sensor_t i;
+	uint8_t i;
 	for (i = 0; i < NUM_TEMP_SENSORS; i++) {
 		switch(temp_sensors[i].temp_type) {
 		#ifdef	TEMP_MAX6675
@@ -99,8 +135,8 @@ void temp_init() {
 }
 
 /// called every 10ms from clock.c - check all temp sensors that are ready for checking
-void temp_sensor_tick() {
-	temp_sensor_t i = 0;
+void temp_tick() {
+	uint8_t i = 0;
 	for (; i < NUM_TEMP_SENSORS; i++) {
 		if (temp_sensors_runtime[i].next_read_time) {
 			temp_sensors_runtime[i].next_read_time--;
@@ -152,7 +188,7 @@ void temp_sensor_tick() {
 						}
 					}
 
-					// this number depends on how frequently temp_sensor_tick is called. the MAX6675 can give a reading every 0.22s, so set this to about 250ms
+					// this number depends on how frequently temp_tick is called. the MAX6675 can give a reading every 0.22s, so set this to about 250ms
 					temp_sensors_runtime[i].next_read_time = 25;
 
 					break;
@@ -276,7 +312,7 @@ void temp_sensor_tick() {
 		}
 
 		if (temp_sensors[i].heater < NUM_HEATERS) {
-			heater_tick(temp_sensors[i].heater, temp_sensors[i].temp_type, temp_sensors_runtime[i].last_read_temp, temp_sensors_runtime[i].target_temp);
+			heater_tick(temp_sensors[i].heater/*, temp_sensors[i].temp_type*/, temp_sensors_runtime[i].last_read_temp, temp_sensors_runtime[i].target_temp);
 		}
 	}
 }
@@ -284,7 +320,7 @@ void temp_sensor_tick() {
 /// report whether all temp sensors are reading their target temperatures
 /// used for M109 and friends
 uint8_t	temp_achieved() {
-	temp_sensor_t i;
+	uint8_t i;
 	uint8_t all_ok = 255;
 
 	for (i = 0; i < NUM_TEMP_SENSORS; i++) {
@@ -297,7 +333,7 @@ uint8_t	temp_achieved() {
 /// specify a target temperature
 /// \param index sensor to set a target for
 /// \param temperature target temperature to aim for
-void temp_set(temp_sensor_t index, uint16_t temperature) {
+void temp_set(uint8_t index, uint16_t temperature) {
 	if (index >= NUM_TEMP_SENSORS)
 		return;
 
@@ -310,7 +346,7 @@ void temp_set(temp_sensor_t index, uint16_t temperature) {
 
 /// return most recent reading for a sensor
 /// \param index sensor to read
-uint16_t temp_get(temp_sensor_t index) {
+uint16_t temp_get(uint8_t index) {
 	if (index >= NUM_TEMP_SENSORS)
 		return 0;
 
@@ -338,7 +374,6 @@ static void single_temp_print(temp_sensor_t index) {
 /// send temperatures to host
 /// \param index sensor value to send
 void temp_print(temp_sensor_t index) {
-
 	if (index == TEMP_SENSOR_none) { // standard behaviour
 		#ifdef HEATER_EXTRUDER
 			sersendf_P(PSTR("T:"));

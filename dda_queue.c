@@ -10,7 +10,6 @@
 #include	"common.h"
 #include	"timer.h"
 #include	"serial.h"
-#include	"temp.h"
 #include	"delay.h"
 #include	"memory_barrier.h"
 

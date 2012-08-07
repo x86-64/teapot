@@ -34,7 +34,6 @@
 #include	"dda.h"
 #include	"gcode_parse.h"
 #include	"timer.h"
-#include	"temp.h"
 #include	"debug.h"
 #include	"heater.h"
 #include	"pinio.h"
