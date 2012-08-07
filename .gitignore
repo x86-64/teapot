@@ -12,6 +12,7 @@
 *.i
 *.s
 *~
+*.swp
 
 temporal.png
 temporal_data
@@ -20,3 +21,4 @@ features.h
 ThermistorTable.h
 sim
 doc
+configs/*.c
