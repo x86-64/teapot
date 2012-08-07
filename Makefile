@@ -93,7 +93,7 @@ PROGID = stk500v2
 
 PROGRAM = mendel
 
-FEATURES_ENABLED=$(shell find configs/ -iname '*.c') 
+FEATURES_ENABLED=$(shell find -L configs/ -iname '*.c') 
 SOURCES = $(FEATURES_ENABLED) core.c $(PROGRAM).c gcode_parse.c gcode_process.c dda.c dda_maths.c dda_queue.c timer.c debug.c heater.c pinio.c home.c crc.c delay.c
 
 ARCH = avr-
@@ -151,12 +151,25 @@ AUTOGEN+=features.h
 features.h:
 	echo "#ifndef FEATURES_H" > features.h
 	echo "#define FEATURES_H" >> features.h
-	grep "API" -rhI configs/ >> features.h
+	find -L configs/ -iname '*.h' | awk '{print "#include \"" $$0 "\""}' >> features.h
+	find -L configs/ -iname '*.c' -exec grep "API" -r {} \; >> features.h
 	echo "#endif" >> features.h
 
 clean: clean-subdirs
-	rm -rf $(AUTOGEN) *.o *.elf *.lst *.map *.sym *.lss *.eep *.srec *.bin *.hex *.al *.i *.s *~
-	cd configs/ && rm -rf $(AUTOGEN) *.o *.elf *.lst *.map *.sym *.lss *.eep *.srec *.bin *.hex *.al *.i *.s *~
+	rm -rf $(AUTOGEN)
+	find . -name '*.o' -delete
+	find . -name '*.elf' -delete
+	find . -name '*.lst' -delete
+	find . -name '*.map' -delete
+	find . -name '*.sym' -delete
+	find . -name '*.lss' -delete
+	find . -name '*.eep' -delete
+	find . -name '*.srec' -delete
+	find . -name '*.bin' -delete
+	find . -name '*.hex' -delete
+	find . -name '*.al' -delete
+	find . -name '*.i' -delete
+	find . -name '*.s' -delete
 
 clean-subdirs:
 	@for dir in $(SUBDIRS); do \

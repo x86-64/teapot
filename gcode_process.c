@@ -495,9 +495,7 @@ void process_gcode_command() {
 				#ifdef ENFORCE_ORDER
 					queue_wait();
 				#endif
-				if ( ! next_target.seen_P)
-					next_target.P = TEMP_SENSOR_none;
-				temp_print(next_target.P);
+				temp_print();
 				break;
 
 			case 7:

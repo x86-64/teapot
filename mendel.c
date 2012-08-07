@@ -281,9 +281,6 @@ void init(void) {
 	// if any of the temp sensors in your common.h use analog interface
 	//analog_init();
 
-	// set up temperature inputs
-	temp_init();
-
 	// enable interrupts
 	sei();
 
@@ -301,7 +298,7 @@ void init(void) {
 */
 void clock_250ms(void) {
 	#ifndef	NO_AUTO_IDLE
-	if (temp_all_zero())	{
+/*	if (temp_all_zero())	{
 		if (psu_timeout > (30 * 4)) {
 			power_off();
 		}
@@ -312,7 +309,8 @@ void clock_250ms(void) {
 			MEMORY_BARRIER();
 			SREG = save_reg;
 		}
-	}
+	}*/
+	// FIXME auto idle depend on temperature status
 	#endif
 
 	ifclock(clock_flag_1s) {

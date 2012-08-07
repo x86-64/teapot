@@ -18,6 +18,8 @@
 #include <avr/version.h>
 #include <avr/wdt.h>
 */
+#include <avr/eeprom.h>
+#include <avr/pgmspace.h>
 #include "arduino.h"
 
 #include "core.h"
