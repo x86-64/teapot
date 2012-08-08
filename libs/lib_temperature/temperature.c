@@ -32,7 +32,6 @@ API void temp_print(void);
 #include	"arduino.h"
 #include	"delay.h"
 #include	"debug.h"
-#include	"heater.h"
 
 
 /// called every 10ms from clock.c - check all temp sensors that are ready for checking

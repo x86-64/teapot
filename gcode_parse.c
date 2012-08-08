@@ -9,7 +9,6 @@
 #include	"serial.h"
 #include	"dda_queue.h"
 #include	"debug.h"
-#include	"heater.h"
 
 #include	"gcode_process.h"
 

@@ -37,7 +37,6 @@
 #include	"gcode_parse.h"
 #include	"timer.h"
 #include	"debug.h"
-#include	"heater.h"
 #include	"pinio.h"
 #include	"arduino.h"
 #include	"dda_queue.h"
@@ -237,14 +236,6 @@ void io_init(void) {
 		power_off();
 	#endif
 
-	// set all heater pins to output
-	do {
-		#undef	DEFINE_HEATER
-		#define	DEFINE_HEATER(name, pin) WRITE(pin, 0); SET_OUTPUT(pin);
-			#include "common.h"
-		#undef DEFINE_HEATER
-	} while (0);
-
 	#ifdef	TEMP_MAX6675
 		// setup SPI
 		WRITE(SCK, 0);				SET_OUTPUT(SCK);
@@ -271,7 +262,7 @@ void init(void) {
 	timer_init();
 
 	// read PID settings from EEPROM
-	heater_init();
+	//heater_init();
 
 	// set up dda
 	dda_init();

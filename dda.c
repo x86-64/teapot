@@ -19,10 +19,6 @@
 #include	"common.h"
 //#include "graycode.c"
 
-#ifdef	DC_EXTRUDER
-	#include	"heater.h"
-#endif
-
 /*
 	position tracking
 */
@@ -359,10 +355,10 @@ void dda_start(DDA *dda) {
 		z_direction(dda->z_direction);
 		e_direction(dda->e_direction);
 
-		#ifdef	DC_EXTRUDER
+		/* FIXME #ifdef	DC_EXTRUDER
 		if (dda->e_delta)
 			heater_set(DC_EXTRUDER, DC_EXTRUDER_PWM);
-		#endif
+		#endif*/
 
 		// initialise state variable
 		move_state.x_counter = move_state.y_counter = move_state.z_counter = \
@@ -682,9 +678,9 @@ void dda_step(DDA *dda) {
 	if (move_state.x_steps == 0 && move_state.y_steps == 0 &&
 	    move_state.z_steps == 0 && move_state.e_steps == 0) {
 		dda->live = 0;
-		#ifdef	DC_EXTRUDER
+		/* FIXME #ifdef	DC_EXTRUDER
 			heater_set(DC_EXTRUDER, 0);
-		#endif
+		#endif*/
 		// z stepper is only enabled while moving
 		z_disable();
 	}

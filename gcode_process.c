@@ -13,7 +13,6 @@
 #include	"dda_queue.h"
 #include	"delay.h"
 #include	"serial.h"
-#include	"heater.h"
 #include	"timer.h"
 #include	"pinio.h"
 #include	"debug.h"
@@ -337,7 +336,7 @@ void process_gcode_command() {
 		#endif
 	}
 	else if (next_target.seen_M) {
-		uint8_t i;
+		//uint8_t i;
 
 		switch (next_target.M) {
 			case 0:
@@ -357,8 +356,6 @@ void process_gcode_command() {
 				//? http://linuxcnc.org/handbook/RS274NGC_3/RS274NGC_33a.html#1002379
 				//?
 				queue_wait();
-				for (i = 0; i < NUM_HEATERS; i++)
-					temp_set(i, 0);
 				power_off();
 				break;
 
@@ -431,7 +428,7 @@ void process_gcode_command() {
 					enqueue(NULL);
 				}
 				#ifdef DC_EXTRUDER
-					heater_set(DC_EXTRUDER, DC_EXTRUDER_PWM);
+					/* FIXME heater_set(DC_EXTRUDER, DC_EXTRUDER_PWM); */
 				#elif E_STARTSTOP_STEPS > 0
 					do {
 						// backup feedrate, move E very quickly then restore feedrate
@@ -452,7 +449,7 @@ void process_gcode_command() {
 				//?
 				//? Undocumented.
 				#ifdef DC_EXTRUDER
-					heater_set(DC_EXTRUDER, 0);
+					/* heater_set(DC_EXTRUDER, 0); */
 				#elif E_STARTSTOP_STEPS > 0
 					do {
 						// backup feedrate, move E very quickly then restore feedrate
@@ -511,9 +508,10 @@ void process_gcode_command() {
 					// wait for all moves to complete
 					queue_wait();
 				#endif
-				#ifdef HEATER_FAN
+				/* FIXME #ifdef HEATER_FAN
 					heater_set(HEATER_FAN, 255);
 				#endif
+				*/
 				break;
 
 			case 9:
@@ -529,9 +527,10 @@ void process_gcode_command() {
 					// wait for all moves to complete
 					queue_wait();
 				#endif
-				#ifdef HEATER_FAN
+				/* FIXME #ifdef HEATER_FAN
 					heater_set(HEATER_FAN, 0);
 				#endif
+				*/
 				break;
 
 			case 109:
@@ -550,10 +549,10 @@ void process_gcode_command() {
 				temp_set(next_target.P, next_target.S);
 				if (next_target.S) {
 					power_on();
-					enable_heater();
+					// FIXME enable_heater();
 				}
 				else {
-					disable_heater();
+					// FIXME disable_heater();
 				}
 				enqueue(NULL);
 				break;
@@ -624,8 +623,8 @@ void process_gcode_command() {
 				//?  FIRMWARE_NAME:Teacup FIRMWARE_URL:http%%3A//github.com/triffid/Teacup_Firmware/ PROTOCOL_VERSION:1.0 MACHINE_TYPE:Mendel EXTRUDER_COUNT:1 TEMP_SENSOR_COUNT:1 HEATER_COUNT:1
 				//?
 
-				sersendf_P(PSTR("FIRMWARE_NAME:Teacup FIRMWARE_URL:http%%3A//github.com/triffid/Teacup_Firmware/ PROTOCOL_VERSION:1.0 MACHINE_TYPE:Mendel EXTRUDER_COUNT:%d TEMP_SENSOR_COUNT:0 HEATER_COUNT:%d"), 1, NUM_HEATERS);
-				// FIXME number of temp sensors
+				sersendf_P(PSTR("FIRMWARE_NAME:Teacup FIRMWARE_URL:http%%3A//github.com/triffid/Teacup_Firmware/ PROTOCOL_VERSION:1.0 MACHINE_TYPE:Mendel EXTRUDER_COUNT:%d TEMP_SENSOR_COUNT:0 HEATER_COUNT:0"), 1);
+				// FIXME number of temp sensors, number of heaters
 				// newline is sent from gcode_parse after we return
 				break;
 
@@ -637,82 +636,6 @@ void process_gcode_command() {
 				//? Wait for ''all'' temperatures and other slowly-changing variables to arrive at their set values.  See also M109.
 
 				enqueue(NULL);
-				break;
-
-			case 130:
-				//? --- M130: heater P factor ---
-				//? Undocumented.
-				if ( ! next_target.seen_P)
-					next_target.P = HEATER_EXTRUDER;
-				if (next_target.seen_S)
-					pid_set_p(next_target.P, next_target.S);
-				break;
-
-			case 131:
-				//? --- M131: heater I factor ---
-				//? Undocumented.
-				if ( ! next_target.seen_P)
-					next_target.P = HEATER_EXTRUDER;
-				if (next_target.seen_S)
-					pid_set_i(next_target.P, next_target.S);
-				break;
-
-			case 132:
-				//? --- M132: heater D factor ---
-				//? Undocumented.
-				if ( ! next_target.seen_P)
-					next_target.P = HEATER_EXTRUDER;
-				if (next_target.seen_S)
-					pid_set_d(next_target.P, next_target.S);
-				break;
-
-			case 133:
-				//? --- M133: heater I limit ---
-				//? Undocumented.
-				if ( ! next_target.seen_P)
-					next_target.P = HEATER_EXTRUDER;
-				if (next_target.seen_S)
-					pid_set_i_limit(next_target.P, next_target.S);
-				break;
-
-			case 134:
-				//? --- M134: save PID settings to eeprom ---
-				//? Undocumented.
-				heater_save_settings();
-				break;
-
-			case 135:
-				//? --- M135: set heater output ---
-				//? Undocumented.
-				if ( ! next_target.seen_P)
-					next_target.P = HEATER_EXTRUDER;
-				if (next_target.seen_S) {
-					heater_set(next_target.P, next_target.S);
-					power_on();
-				}
-				break;
-
-			#ifdef	DEBUG
-			case 136:
-				//? --- M136: PRINT PID settings to host ---
-				//? Undocumented.
-				//? This comand is only available in DEBUG builds.
-				if ( ! next_target.seen_P)
-					next_target.P = HEATER_EXTRUDER;
-				heater_print(next_target.P);
-				break;
-			#endif
-
-			case 140:
-				//? --- M140: Set heated bed temperature ---
-				//? Undocumented.
-				#ifdef	HEATER_BED
-					if ( ! next_target.seen_S)
-						break;
-					temp_set(HEATER_BED, next_target.S);
-					if (next_target.S)
-						power_on();
-				#endif
 				break;
 
 			case 190:
