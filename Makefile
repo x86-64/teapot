@@ -153,6 +153,12 @@ features.h:
 	echo "#define FEATURES_H" >> features.h
 	find -L configs/ -iname '*.h' | awk '{print "#include \"" $$0 "\""}' >> features.h
 	find -L configs/ -iname '*.c' -exec grep "API" -r {} \; >> features.h
+	echo "void features_init(void);" >> features.h
+	echo "  #ifdef FEATURES_C" >> features.h
+	echo "    void features_init(void){" >> features.h
+	             find -L configs/ -iname '*.c' -exec grep -Po "[a-z0-9]+_init" -r {} \; | sort -u | awk '{print $$0 "();"}' >> features.h
+	echo "    }" >> features.h
+	echo "  #endif" >> features.h
 	echo "#endif" >> features.h
 
 clean: clean-subdirs

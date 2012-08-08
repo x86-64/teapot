@@ -24,6 +24,8 @@
 			ctrl+d \endcode
 */
 
+#define FEATURES_C
+
 #include	<avr/io.h>
 #include	<avr/interrupt.h>
 
@@ -254,10 +256,7 @@ void io_init(void) {
 
 /// Startup code, run when we come out of reset
 void init(void) {
-	// call init callback
-	//
-	// set up watchdog
-	//wd_init();
+	features_init();
 
 	// set up serial
 	serial_init();
@@ -276,10 +275,6 @@ void init(void) {
 
 	// set up dda
 	dda_init();
-
-	// start up analog read interrupt loop,
-	// if any of the temp sensors in your common.h use analog interface
-	//analog_init();
 
 	// enable interrupts
 	sei();
