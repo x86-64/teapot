@@ -368,7 +368,7 @@ void process_gcode_command() {
 				//? It can be started again by pressing the reset button on the master microcontroller.  See also M0.
 				//?
 
-				timer_stop();
+				timers_stop();
 				queue_flush();
 				power_off();
 				cli();

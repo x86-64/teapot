@@ -59,12 +59,12 @@ uint8_t queue_empty() {
 // It calls a few other functions, though.
 // -------------------------------------------------------
 /// Take a step or go to the next move.
-void queue_step() {
+void queue_step(uint8_t id, void *userdata) {
 	// do our next step
 	DDA* current_movebuffer = &movebuffer[mb_tail];
 	if (current_movebuffer->live) {
 		if (current_movebuffer->waitfor_temp) {
-			setTimer(HEATER_WAIT_TIMEOUT);
+			timer_charge(0, HEATER_WAIT_TIMEOUT);
 			if (temp_achieved()) {
 				current_movebuffer->live = current_movebuffer->waitfor_temp = 0;
 				serial_writestr_P(PSTR("Temp achieved\n"));
@@ -128,7 +128,7 @@ void enqueue_home(TARGET *t, uint8_t endstop_check, uint8_t endstop_stop_cond) {
 	if (isdead) {
 		next_move();
 		// Compensate for the cli() in setTimer().
-		sei();
+		sei(); // FIXME do we need it now?
 	}
 }
 
@@ -155,7 +155,7 @@ void next_move() {
 				serial_writestr_P(PSTR("Waiting for target temp\n"));
 			#endif
 			current_movebuffer->live = 1;
-			setTimer(HEATER_WAIT_TIMEOUT);
+			timer_charge(0, HEATER_WAIT_TIMEOUT);
 		}
 		else {
 			dda_start(current_movebuffer);
@@ -183,7 +183,7 @@ void queue_flush() {
 	movebuffer[mb_head].live = 0;
 
 	// disable timer
-	setTimer(0);
+	timer_disable(0);
 	
 	MEMORY_BARRIER();
 	SREG = save_reg;

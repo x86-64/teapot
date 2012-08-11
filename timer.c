@@ -20,6 +20,8 @@
 #include	"dda_queue.h"
 #endif
 
+#define NUM_TIMERS 3
+timer_t timers[NUM_TIMERS];
 
 /// how often we overflow and update our clock; with F_CPU=16MHz, max is < 4.096ms (TICK_TIME = 65535)
 #define		TICK_TIME			2 MS
@@ -28,6 +30,7 @@
 
 /// time until next step, as output compare register is too small for long step times
 uint32_t	next_step_time;
+uint32_t	delay_time;
 
 #ifdef ACCELERATION_TEMPORAL
 /// unwanted extra delays, ideally always zero
@@ -46,9 +49,11 @@ volatile uint8_t	clock_flag_10ms = 0;
 volatile uint8_t	clock_flag_250ms = 0;
 volatile uint8_t	clock_flag_1s = 0;
 
+void timer_hardware_set(uint32_t delay);
+
 /// initialise timer and enable system clock interrupt.
 /// step interrupt is enabled later when we start using it
-void timer_init()
+void timers_init()
 {
 	// no outputs
 	TCCR1A = 0;
@@ -58,6 +63,45 @@ void timer_init()
 	OCR1B = TICK_TIME & 0xFFFF;
 	// enable interrupt
 	TIMSK1 = MASK(OCIE1B);
+}
+
+void timers_update(uint32_t time_passed){
+	uint8_t  i;
+	
+	// update time_left for all
+	for(i=0; i<NUM_TIMERS; i++){
+		if(timers[i].enabled == 0)
+			continue;
+
+		timers[i].time_left -= time_passed;                 // update time_left
+	}
+}
+
+void timers_recalc(void){
+	uint8_t  i;
+	uint8_t  have_timers;
+	uint32_t min;
+	
+redo:;
+	have_timers = 0;
+	for(i=0; i<NUM_TIMERS; i++){
+		if(timers[i].enabled == 0)
+			continue;
+		
+		if(timers[i].time_left < SAFE_INTERRUPT_DELAY){     // less than we can wait in hardware timer, fire it now
+			timer_disable(i);
+			timers[i].callback(i, timers[i].userdata);
+			goto redo;                                  // since user could re-enable timer, we have to redo our calculations
+		}
+		
+		if((have_timers == 0) || (min > timers[i].time_left)){  // if this is first iteration, or this timer have less time to fire
+			min         = timers[i].time_left;
+			have_timers = 1;
+		}
+	}
+	if(have_timers == 1){
+		timer_hardware_set(min); // ignore uninitialized min warning here, it is ok
+	}
 }
 
 /// comparator B is the system clock, happens every TICK_TIME
@@ -105,21 +149,11 @@ ISR(TIMER1_COMPA_vect) {
 	// Check if this is a real step, or just a next_step_time "overflow"
 	if (next_step_time < 65536) {
 		// step!
-		#ifdef DEBUG_LED_PIN
-			WRITE(DEBUG_LED_PIN, 1);
-		#endif
-
 		// disable this interrupt. if we set a new timeout, it will be re-enabled when appropriate
 		TIMSK1 &= ~MASK(OCIE1A);
 		
-		// stepper tick
-		queue_step();
-
-		// led off
-		#ifdef DEBUG_LED_PIN
-			WRITE(DEBUG_LED_PIN, 0);
-		#endif
-
+		timers_update(delay_time);
+		timers_recalc();
 		return;
 	}
 
@@ -147,7 +181,7 @@ ISR(TIMER1_COMPA_vect) {
 	as late as possible. If you use it from outside the step interrupt,
 	do a sei() after it to make the interrupt actually fire.
 */
-void setTimer(uint32_t delay)
+void timer_hardware_set(uint32_t delay)
 {
 	uint16_t step_start = 0;
 	#ifdef ACCELERATION_TEMPORAL
@@ -172,6 +206,7 @@ void setTimer(uint32_t delay)
 		step_start = TCNT1;
 	}
 	next_step_time = delay;
+	delay_time     = delay;
 
 	#ifdef ACCELERATION_TEMPORAL
 	// 300 = safe number of cpu cycles until the interrupt actually happens
@@ -224,8 +259,62 @@ void setTimer(uint32_t delay)
 }
 
 /// stop timers - emergency stop
-void timer_stop() {
+void timers_stop() {
 	// disable all interrupts
 	TIMSK1 = 0;
 }
 #endif /* ifdef HOST */
+
+void timer_setup(uint8_t id, timer_callback callback, void *userdata){
+	timers[id].callback  = callback;
+	timers[id].userdata  = userdata;
+}
+void timer_enable(uint8_t id){
+	timers[id].enabled   = 1;
+	timers[id].time_left = timers[id].delay;
+}
+void timer_disable(uint8_t id){
+	timers[id].enabled   = 0;
+}
+void timer_charge(uint8_t id, uint32_t delay){
+	timers[id].delay     = delay;
+	timer_enable(id);
+	
+	timers_recalc();
+}
+
+/* 
+ * usage example
+ *
+void mytimer1_callback(uint8_t id, void *userdata){
+	PORTB |= (1<<DDB1); _delay_us(500); PORTB &= ~(1<<DDB1);
+	
+	timer_enable(id);
+}
+void mytimer2_callback(uint8_t id, void *userdata){
+	PORTB |= (1<<DDB2); _delay_us(500); PORTB &= ~(1<<DDB2);
+	
+	timer_enable(id);
+}
+void mytimer3_callback(uint8_t id, void *userdata){
+	PORTB |= (1<<DDB3); _delay_us(500); PORTB &= ~(1<<DDB3);
+	
+	timer_enable(id);
+}
+
+int main(void){
+	DDRB = 0xff;// (1<<DDB0)|(1<<DDB1);
+
+	timers_init();
+	
+	timer_setup(0, &mytimer1_callback, 0);
+	timer_setup(1, &mytimer2_callback, 0);
+	timer_setup(2, &mytimer3_callback, 0);
+	
+	timer_charge(0, 10 MS);
+	timer_charge(1, 25 MS);
+	timer_charge(2, 14 MS);
+	sei();
+	while(1);
+}
+*/

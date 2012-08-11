@@ -259,7 +259,7 @@ void init(void) {
 	io_init();
 
 	// set up timers
-	timer_init();
+	timers_init();
 
 	// read PID settings from EEPROM
 	//heater_init();

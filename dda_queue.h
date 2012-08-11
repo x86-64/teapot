@@ -24,7 +24,7 @@ uint8_t queue_full(void);
 uint8_t queue_empty(void);
 
 // take one step
-void queue_step(void);
+void queue_step(uint8_t id, void *userdata);
 
 // add a new target to the queue
 // t == NULL means add a wait for target temp to the queue

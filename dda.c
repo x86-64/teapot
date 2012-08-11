@@ -51,6 +51,8 @@ void dda_init(void) {
 		move_state.n = 1;
 		move_state.c = ((uint32_t)((double)F_CPU / sqrt((double)(STEPS_PER_M_X * ACCELERATION / 1000.)))) << 8;
 	#endif
+
+	timer_setup(0, queue_step, 0);
 }
 
 /*! Distribute a new startpoint to DDA's internal structures without any movement.
@@ -378,11 +380,11 @@ void dda_start(DDA *dda) {
 		// set timeout for first step
 		#ifdef ACCELERATION_RAMPING
 		if (dda->c_min > move_state.c) // can be true when look-ahead removed all deceleration steps
-			setTimer(dda->c_min >> 8);
+			timer_charge(0, dda->c_min >> 8);
 		else
-			setTimer(move_state.c >> 8);
+			timer_charge(0, move_state.c >> 8);
 		#else
-		setTimer(dda->c >> 8);
+		timer_charge(0, dda->c >> 8);
 		#endif
 	}
 	// else just a speed change, keep dda->live = 0
@@ -692,11 +694,11 @@ void dda_step(DDA *dda) {
 		// the nice thing about _not_ setting dda->c to dda->c_min is, the move stops at the exact same c as it started, so we have to calculate c only once for the time being
 		// TODO: set timer only if dda->c has changed
 		if (dda->c_min > move_state.c)
-			setTimer(dda->c_min >> 8);
+			timer_charge(0, dda->c_min >> 8);
 		else
-			setTimer(move_state.c >> 8);
+			timer_charge(0, move_state.c >> 8);
 	#else
-		setTimer(dda->c >> 8);
+		timer_charge(0, dda->c >> 8);
 	#endif
 
 	// turn off step outputs, hopefully they've been on long enough by now to register with the drivers
