@@ -460,7 +460,7 @@ void process_gcode_command() {
 					} while (0);
 				#endif
 				break;
-
+			/* FIXME extruder temp 
 			case 104:
 				//? --- M104: Set Extruder Temperature (Fast) ---
 				//?
@@ -477,7 +477,7 @@ void process_gcode_command() {
 				if (next_target.S)
 					power_on();
 				break;
-
+			*/
 			case 105:
 				//? --- M105: Get Extruder Temperature ---
 				//?
@@ -532,7 +532,7 @@ void process_gcode_command() {
 				#endif
 				*/
 				break;
-
+			/* FIXME extruder temp
 			case 109:
 				//? --- M109: Set Extruder Temperature ---
 				//?
@@ -556,6 +556,7 @@ void process_gcode_command() {
 				}
 				enqueue(NULL);
 				break;
+			*/
 
 			case 110:
 				//? --- M110: Set Current Line Number ---
