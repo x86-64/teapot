@@ -79,306 +79,179 @@ static int32_t decfloat_to_int(decfloat *df, uint16_t multiplicand) {
 	return df->sign ? -(int32_t)r : (int32_t)r;
 }
 
-void gcode_init(void) {
-	// gcc guarantees us all variables are initialised to 0.
 
-	// assume a G1 by default
-	next_target.seen_G = 1;
-	next_target.G = 1;
+typedef enum lexer_token {
+	T_CHAR,
+	T_DIGIT,
+	T_SPACE,
+	T_NEWLINE,
+	T_SIGN,
+	T_DOT,
+	T_COMMENT_SEMICOLON,
+	T_COMMENT_START,
+	T_COMMENT_END,
 
-	#ifndef E_ABSOLUTE
-		next_target.option_e_relative = 1;
-	#endif
+	T_INVALID
+} lexer_token;
+
+typedef enum parser_state {
+	S_PARSE_CHAR,
+	S_PARSE_NUMBER,
+	S_COMMENT_SEMI,
+	S_COMMENT_BRACKET,
+} parser_state;
+
+parser_state gcode_parser_state       = S_PARSE_CHAR;
+uint8_t      gcode_parser_char        = MAX_LETTER;
+
+lexer_token  gcode_lexer(uint8_t c){
+	      if(c >= 'A' && c <= 'Z'){      return T_CHAR;
+	}else if(c == '*'){                  return T_CHAR;
+	}else if(c >= '0' || c <= '9'){      return T_DIGIT;
+	}else if(c == ' ' || c == '\t'){     return T_SPACE;
+	}else if(c == '\r' || c == '\n'){    return T_NEWLINE;
+	}else if(c == '-'){                  return T_SIGN;
+	}else if(c == '.'){                  return T_DOT;
+	}else if(c == ';'){                  return T_COMMENT_SEMICOLON;
+	}else if(c == '('){                  return T_COMMENT_START;
+	}else if(c == ')'){                  return T_COMMENT_END;
+	}
+	return T_INVALID;
+}
+
+letters      gcode_convert_char(uint8_t c){
+	switch(c){
+		case 'G': return L_G;
+		case 'M': return L_M;
+		case 'X': return L_X;
+		case 'Y': return L_Y;
+		case 'Z': return L_Z;
+		case 'E': return L_E;
+		case 'F': return L_F;
+		case 'S': return L_S;
+		case 'P': return L_P;
+		case 'T': return L_T;
+		case 'N': return L_N;
+		case '*': return L_CHECKSUM;
+	}
+	return MAX_LETTER;
 }
 
 /// Character Received - add it to our command
 /// \param c the next character to process
-void gcode_parse_char(uint8_t c) {
+void gcode_parse_char(uint8_t c){
+	lexer_token            type;
+	
 	// uppercase
 	if (c >= 'a' && c <= 'z')
 		c &= ~32;
+	
+	type = gcode_lexer(c);
+	switch(gcode_parser_state){
+		case S_PARSE_CHAR: // wait for parameter name mode
+			switch(type){
+				// allow comments to start between parameters 
+				case T_COMMENT_SEMICOLON: gcode_parser_state = S_COMMENT_SEMI;    break;
+				case T_COMMENT_START:     gcode_parser_state = S_COMMENT_BRACKET; break;
+				
+				// this is axis or some other parameter
+				case T_CHAR:
+					gcode_parser_char  = gcode_convert_char(c);
+					gcode_parser_state = S_PARSE_NUMBER;
+					
+					// clean read_digit before parsing anything
+					read_digit.sign = read_digit.mantissa = read_digit.exponent = 0;
 
-	// process previous field
-	if (last_field) {
-		// check if we're seeing a new field or end of line
-		// any character will start a new field, even invalid/unknown ones
-		if ((c >= 'A' && c <= 'Z') || c == '*' || (c == 10) || (c == 13)) {
-			switch (last_field) {
-				case 'G':
-					next_target.G = read_digit.mantissa;
-					if (DEBUG_ECHO && (debug_flags & DEBUG_ECHO))
-						serwrite_uint8(next_target.G);
+					// set seen flag
+					next_target.seen |= 1 << gcode_parser_char;
 					break;
-				case 'M':
-					next_target.M = read_digit.mantissa;
-					if (DEBUG_ECHO && (debug_flags & DEBUG_ECHO))
-						serwrite_uint8(next_target.M);
+				
+				// ignore spaces
+				case T_SPACE:
 					break;
-				case 'X':
-					if (next_target.option_inches)
-						next_target.target.X = decfloat_to_int(&read_digit, 25400);
-					else
-						next_target.target.X = decfloat_to_int(&read_digit, 1000);
-					if (DEBUG_ECHO && (debug_flags & DEBUG_ECHO))
-						serwrite_int32(next_target.target.X);
-					break;
-				case 'Y':
-					if (next_target.option_inches)
-						next_target.target.Y = decfloat_to_int(&read_digit, 25400);
-					else
-						next_target.target.Y = decfloat_to_int(&read_digit, 1000);
-					if (DEBUG_ECHO && (debug_flags & DEBUG_ECHO))
-						serwrite_int32(next_target.target.Y);
-					break;
-				case 'Z':
-					if (next_target.option_inches)
-						next_target.target.Z = decfloat_to_int(&read_digit, 25400);
-					else
-						next_target.target.Z = decfloat_to_int(&read_digit, 1000);
-					if (DEBUG_ECHO && (debug_flags & DEBUG_ECHO))
-						serwrite_int32(next_target.target.Z);
-					break;
-				case 'E':
-					if (next_target.option_inches)
-						next_target.target.E = decfloat_to_int(&read_digit, 25400);
-					else
-						next_target.target.E = decfloat_to_int(&read_digit, 1000);
-					if (DEBUG_ECHO && (debug_flags & DEBUG_ECHO))
-						serwrite_uint32(next_target.target.E);
-					break;
-				case 'F':
-					// just use raw integer, we need move distance and n_steps to convert it to a useful value, so wait until we have those to convert it
-					if (next_target.option_inches)
-						next_target.target.F = decfloat_to_int(&read_digit, 25400);
-					else
-						next_target.target.F = decfloat_to_int(&read_digit, 1);
-					if (DEBUG_ECHO && (debug_flags & DEBUG_ECHO))
-						serwrite_uint32(next_target.target.F);
-					break;
-				case 'S':
-					// if this is temperature, multiply by 4 to convert to quarter-degree units
-					// cosmetically this should be done in the temperature section,
-					// but it takes less code, less memory and loses no precision if we do it here instead
-					if ((next_target.M == 104) || (next_target.M == 109) || (next_target.M == 140))
-						next_target.S = decfloat_to_int(&read_digit, 4);
-					// if this is heater PID stuff, multiply by PID_SCALE because we divide by PID_SCALE later on
-					else if ((next_target.M >= 130) && (next_target.M <= 132))
-						next_target.S = decfloat_to_int(&read_digit, PID_SCALE);
-					else
-						next_target.S = decfloat_to_int(&read_digit, 1);
-					if (DEBUG_ECHO && (debug_flags & DEBUG_ECHO))
-						serwrite_uint16(next_target.S);
-					break;
-				case 'P':
-					next_target.P = decfloat_to_int(&read_digit, 1);
-					if (DEBUG_ECHO && (debug_flags & DEBUG_ECHO))
-						serwrite_uint16(next_target.P);
-					break;
-				case 'T':
-					next_target.T = read_digit.mantissa;
-					if (DEBUG_ECHO && (debug_flags & DEBUG_ECHO))
-						serwrite_uint8(next_target.T);
-					break;
-				case 'N':
-					next_target.N = decfloat_to_int(&read_digit, 1);
-					if (DEBUG_ECHO && (debug_flags & DEBUG_ECHO))
-						serwrite_uint32(next_target.N);
-					break;
-				case '*':
-					next_target.checksum_read = decfloat_to_int(&read_digit, 1);
-					if (DEBUG_ECHO && (debug_flags & DEBUG_ECHO))
-						serwrite_uint8(next_target.checksum_read);
-					break;
+
+				// newline means end of current command - start executing
+				case T_NEWLINE:
+					// process
+					serial_writestr_P(PSTR("ok "));
+					process_gcode_command();
+					serial_writechar('\n');
+					
+					// reset variables
+					next_target.seen     = 0;
+					next_target.checksum = 0;
+					break; 
+				
+				default:
+					goto error;
 			}
-			// reset for next field
-			last_field = 0;
-			read_digit.sign = read_digit.mantissa = read_digit.exponent = 0;
-		}
-	}
-
-	// skip comments
-	if (next_target.seen_semi_comment == 0 && next_target.seen_parens_comment == 0) {
-		// new field?
-		if ((c >= 'A' && c <= 'Z') || c == '*') {
-			last_field = c;
-			if (DEBUG_ECHO && (debug_flags & DEBUG_ECHO))
-				serial_writechar(c);
-		}
-
-		// process character
-		switch (c) {
-			// each currently known command is either G or M, so preserve previous G/M unless a new one has appeared
-			// FIXME: same for T command
-			case 'G':
-				next_target.seen_G = 1;
-				next_target.seen_M = 0;
-				next_target.M = 0;
-				break;
-			case 'M':
-				next_target.seen_M = 1;
-				next_target.seen_G = 0;
-				next_target.G = 0;
-				break;
-			case 'X':
-				next_target.seen_X = 1;
-				break;
-			case 'Y':
-				next_target.seen_Y = 1;
-				break;
-			case 'Z':
-				next_target.seen_Z = 1;
-				break;
-			case 'E':
-				next_target.seen_E = 1;
-				break;
-			case 'F':
-				next_target.seen_F = 1;
-				break;
-			case 'S':
-				next_target.seen_S = 1;
-				break;
-			case 'P':
-				next_target.seen_P = 1;
-				break;
-			case 'T':
-				next_target.seen_T = 1;
-				break;
-			case 'N':
-				next_target.seen_N = 1;
-				break;
-			case '*':
-				next_target.seen_checksum = 1;
-				break;
-
-			// comments
-			case ';':
-				next_target.seen_semi_comment = 1;
-				break;
-			case '(':
-				next_target.seen_parens_comment = 1;
-				break;
-
-			// now for some numeracy
-			case '-':
-				read_digit.sign = 1;
-				// force sign to be at start of number, so 1-2 = -2 instead of -12
-				read_digit.exponent = 0;
-				read_digit.mantissa = 0;
-				break;
-			case '.':
-				if (read_digit.exponent == 0)
-					read_digit.exponent = 1;
-				break;
-			#ifdef	DEBUG
-			case ' ':
-			case '\t':
-			case 10:
-			case 13:
-				// ignore
-				break;
-			#endif
-
-			default:
-				// can't do ranges in switch..case, so process actual digits here.
-				if (c >= '0' && c <= '9') {
-					if (read_digit.exponent < DECFLOAT_EXP_MAX + 1 &&
-							((next_target.option_inches == 0 &&
-							read_digit.mantissa < DECFLOAT_MANT_MM_MAX) ||
-							(next_target.option_inches &&
-							read_digit.mantissa < DECFLOAT_MANT_IN_MAX)))
-					{
+			break;
+			
+		case S_PARSE_NUMBER: // wait for parameter value mode
+			switch(type){
+				case T_DIGIT:
+					if (read_digit.exponent < DECFLOAT_EXP_MAX + 1){
 						// this is simply mantissa = (mantissa * 10) + atoi(c) in different clothes
 						read_digit.mantissa = (read_digit.mantissa << 3) + (read_digit.mantissa << 1) + (c - '0');
 						if (read_digit.exponent)
 							read_digit.exponent++;
 					}
-				}
-				#ifdef	DEBUG
-				else {
-					// invalid
-					serial_writechar('?');
-					serial_writechar(c);
-					serial_writechar('?');
-				}
-				#endif
-		}
-	} else if ( next_target.seen_parens_comment == 1 && c == ')')
-		next_target.seen_parens_comment = 0; // recognize stuff after a (comment)
+					break;
+					
+				case T_SIGN:
+					read_digit.sign     = 1;
+					// force sign to be at start of number, so 1-2 = -2 instead of -12
+					read_digit.exponent = 0;
+					read_digit.mantissa = 0;
+					break;
 
-	if (next_target.seen_checksum == 0)
-		next_target.checksum_calculated = crc(next_target.checksum_calculated, c);
-
-	// end of line
-	if ((c == 10) || (c == 13)) {
-		if (DEBUG_ECHO && (debug_flags & DEBUG_ECHO))
-			serial_writechar(c);
-
-		if (
-		#ifdef	REQUIRE_LINENUMBER
-			((next_target.N >= next_target.N_expected) && (next_target.seen_N == 1)) ||
-			(next_target.seen_M && (next_target.M == 110))
-		#else
-			1
-		#endif
-			) {
-			if (
-				#ifdef	REQUIRE_CHECKSUM
-				((next_target.checksum_calculated == next_target.checksum_read) && (next_target.seen_checksum == 1))
-				#else
-				((next_target.checksum_calculated == next_target.checksum_read) || (next_target.seen_checksum == 0))
-				#endif
-				) {
-				// process
-				serial_writestr_P(PSTR("ok "));
-				process_gcode_command();
-				serial_writechar('\n');
-
-				// expect next line number
-				if (next_target.seen_N == 1)
-					next_target.N_expected = next_target.N + 1;
+				case T_DOT:
+					if (read_digit.exponent == 0)
+						read_digit.exponent = 1;
+					break;
+					
+				case T_SPACE: // we finished
+					// since we use universal parameters table - all conversions to inch or mm goes to according modules
+					next_target.parameters[gcode_parser_char] = decfloat_to_int(&read_digit, 1);
+					
+					gcode_parser_state = S_PARSE_CHAR;
+					gcode_parser_char  = MAX_LETTER;
+					break;
+					
+				default:
+					goto error;
 			}
-			else {
-				sersendf_P(PSTR("rs N%ld Expected checksum %d\n"), next_target.N_expected, next_target.checksum_calculated);
-// 				request_resend();
+		
+		// comments
+		case S_COMMENT_SEMI:
+			switch(type){
+				case T_NEWLINE:           gcode_parser_state = S_PARSE_CHAR;      break;
+				default: break;
 			}
-		}
-		else {
-			sersendf_P(PSTR("rs N%ld Expected line number %ld\n"), next_target.N_expected, next_target.N_expected);
-// 			request_resend();
-		}
-
-		// reset variables
-		next_target.seen_X = next_target.seen_Y = next_target.seen_Z = \
-			next_target.seen_E = next_target.seen_F = next_target.seen_S = \
-			next_target.seen_P = next_target.seen_T = next_target.seen_N = \
-			next_target.seen_M = next_target.seen_checksum = next_target.seen_semi_comment = \
-			next_target.seen_parens_comment = next_target.checksum_read = \
-			next_target.checksum_calculated = 0;
-		// last_field and read_digit are reset above already
-
-		// assume a G1 by default
-		next_target.seen_G = 1;
-		next_target.G = 1;
-
-		if (next_target.option_all_relative) {
-			next_target.target.X = next_target.target.Y = next_target.target.Z = 0;
-		}
-		if (next_target.option_all_relative || next_target.option_e_relative) {
-			next_target.target.E = 0;
-		}
+			break;
+		case S_COMMENT_BRACKET:
+			switch(type){
+				case T_COMMENT_END:       gcode_parser_state = S_PARSE_CHAR;      break;
+				default: break;
+			}
+			break;
 	}
+resume:
+	
+	if(gcode_parser_char != L_CHECKSUM)
+		next_target.checksum = crc(next_target.checksum, c);
+	
+	//if (DEBUG_ECHO && (debug_flags & DEBUG_ECHO))
+	//	serial_writechar(c);
+	return;
+
+error:
+	#ifdef	DEBUG
+		// emit error
+		serial_writechar('?');
+		serial_writechar(c);
+		serial_writechar('?');
+	#endif
+	goto resume;
 }
 
-/***************************************************************************\
-*                                                                           *
-* Request a resend of the current line - used from various places.          *
-*                                                                           *
-* Relies on the global variable next_target.N being valid.                  *
-*                                                                           *
-\***************************************************************************/
-
-void request_resend(void) {
-	serial_writestr_P(PSTR("rs "));
-	serwrite_uint8(next_target.N);
-	serial_writechar('\n');
-}

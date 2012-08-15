@@ -40,6 +40,22 @@ static void SpecialMoveE(int32_t e, uint32_t f) {
 }
 #endif /* E_STARTSTOP_STEPS > 0 */
 
+/***************************************************************************\
+*                                                                           *
+* Request a resend of the current line - used from various places.          *
+*                                                                           *
+* Relies on the global variable next_target.parameters[L_N] being valid.                  *
+*                                                                           *
+\***************************************************************************/
+
+void request_resend(void) {
+	serial_writestr_P(PSTR("rs "));
+	serwrite_uint8(next_target.parameters[L_N]);
+	serial_writechar('\n');
+}
+
+uint32_t N_expected;
+
 /************************************************************************//**
 
   \brief Processes command stored in global \ref next_target.
@@ -53,44 +69,50 @@ static void SpecialMoveE(int32_t e, uint32_t f) {
 void process_gcode_command() {
 	uint32_t	backup_f;
 
-	// convert relative to absolute
-	if (next_target.option_all_relative) {
-		next_target.target.X += startpoint.X;
-		next_target.target.Y += startpoint.Y;
-		next_target.target.Z += startpoint.Z;
-	}
-
-	// E relative movement.
-	// Matches Sprinter's behaviour as of March 2012.
-	if (next_target.option_all_relative || next_target.option_e_relative)
-		next_target.target.e_relative = 1;
-	else
-		next_target.target.e_relative = 0;
-
 	// implement axis limits
 	#ifdef	X_MIN
-		if (next_target.target.X < X_MIN * 1000.)
-			next_target.target.X = X_MIN * 1000.;
+		if (next_target.parameters[L_X] < X_MIN * 1000.)
+			next_target.parameters[L_X] = X_MIN * 1000.;
 	#endif
 	#ifdef	X_MAX
-		if (next_target.target.X > X_MAX * 1000.)
-			next_target.target.X = X_MAX * 1000.;
+		if (next_target.parameters[L_X] > X_MAX * 1000.)
+			next_target.parameters[L_X] = X_MAX * 1000.;
 	#endif
 	#ifdef	Y_MIN
-		if (next_target.target.Y < Y_MIN * 1000.)
-			next_target.target.Y = Y_MIN * 1000.;
+		if (next_target.parameters[L_Y] < Y_MIN * 1000.)
+			next_target.parameters[L_Y] = Y_MIN * 1000.;
 	#endif
 	#ifdef	Y_MAX
-		if (next_target.target.Y > Y_MAX * 1000.)
-			next_target.target.Y = Y_MAX * 1000.;
+		if (next_target.parameters[L_Y] > Y_MAX * 1000.)
+			next_target.parameters[L_Y] = Y_MAX * 1000.;
 	#endif
 	#ifdef	Z_MIN
-		if (next_target.target.Z < Z_MIN * 1000.)
-			next_target.target.Z = Z_MIN * 1000.;
+		if (next_target.parameters[L_Z] < Z_MIN * 1000.)
+			next_target.parameters[L_Z] = Z_MIN * 1000.;
 	#endif
 	#ifdef	Z_MAX
-		if (next_target.target.Z > Z_MAX * 1000.)
-			next_target.target.Z = Z_MAX * 1000.;
+		if (next_target.parameters[L_Z] > Z_MAX * 1000.)
+			next_target.parameters[L_Z] = Z_MAX * 1000.;
+	#endif
+	
+	#ifdef	REQUIRE_LINENUMBER
+		if( 
+			((next_target.parameters[L_N] >= N_expected) && ((next_target.seen & (1<<L_N)) != 0)) ||
+			((next_target.seen & (1<<L_M)) != 0 && (next_target.parameters[L_M] == 110))){
+		}else {
+			sersendf_P(PSTR("rs N%ld Expected line number %ld\n"), next_target.parameters[L_N], N_expected);
+			//request_resend();
+		}
+			
+		// expect next line number
+		if ((next_target.seen & (1<<L_N)) != 0)
+			N_expected = next_target.parameters[L_N] + 1;
+	#endif
+	#ifdef	REQUIRE_CHECKSUM
+		if( ((next_target.seen & (1<<L_CHECKSUM)) != 0) || (next_target.checksum_calculated != next_target.checksum_read) ){
+			sersendf_P(PSTR("rs N%ld Expected checksum %d\n"), N_expected, next_target.checksum_calculated);
+			//request_resend();
+		}
 	#endif
 
 	
@@ -98,19 +120,19 @@ void process_gcode_command() {
 	
 	// The GCode documentation was taken from http://reprap.org/wiki/Gcode .
 
-	if (next_target.seen_T) {
+	if ((next_target.seen & (1<<L_T)) != 0) {
 	    //? --- T: Select Tool ---
 	    //?
 	    //? Example: T1
 	    //?
 	    //? Select extruder number 1 to build with.  Extruder numbering starts at 0.
 
-	    next_tool = next_target.T;
+	    next_tool = next_target.parameters[L_T];
 	}
 
-	if (next_target.seen_G) {
+	if ((next_target.seen & (1<<L_G)) != 0) {
 		uint8_t axisSelected = 0;
-		switch (next_target.G) {
+		switch (next_target.parameters[L_G]) {
 			case 0:
 				//? G0: Rapid Linear Motion
 				//?
@@ -118,10 +140,10 @@ void process_gcode_command() {
 				//?
 				//? In this case move rapidly to X = 12 mm.  In fact, the RepRap firmware uses exactly the same code for rapid as it uses for controlled moves (see G1 below), as - for the RepRap machine - this is just as efficient as not doing so.  (The distinction comes from some old machine tools that used to move faster if the axes were not driven in a straight line.  For them G0 allowed any movement in space to get to the destination as fast as possible.)
 				//?
-				backup_f = next_target.target.F;
-				next_target.target.F = MAXIMUM_FEEDRATE_X * 2L;
+				backup_f = next_target.parameters[L_F];
+				next_target.parameters[L_F] = MAXIMUM_FEEDRATE_X * 2L;
 				enqueue(&next_target.target);
-				next_target.target.F = backup_f;
+				next_target.parameters[L_F] = backup_f;
 				break;
 
 			case 1:
@@ -149,8 +171,8 @@ void process_gcode_command() {
 				//?
 				queue_wait();
 				// delay
-				if (next_target.seen_P) {
-					for (;next_target.P > 0;next_target.P--) {
+				if ((next_target.seen & (1<<L_P)) != 0) {
+					for (;next_target.parameters[L_P] > 0;next_target.parameters[L_P]--) {
 						ifclock(clock_flag_10ms) {
 							clock_10ms();
 						}
@@ -166,7 +188,7 @@ void process_gcode_command() {
 				//?
 				//? Units from now on are in inches.
 				//?
-				next_target.option_inches = 1;
+				// FIXME next_target.option_inches = 1;
 				break;
 
 			case 21:
@@ -176,7 +198,7 @@ void process_gcode_command() {
 				//?
 				//? Units from now on are in millimeters.  (This is the RepRap default.)
 				//?
-				next_target.option_inches = 0;
+				// FIXME next_target.option_inches = 0;
 				break;
 
 			case 30:
@@ -202,7 +224,7 @@ void process_gcode_command() {
 
 				queue_wait();
 
-				if (next_target.seen_X) {
+				if ((next_target.seen & (1<<L_X)) != 0) {
 					#if defined	X_MIN_PIN
 						home_x_negative();
 					#elif defined X_MAX_PIN
@@ -210,7 +232,7 @@ void process_gcode_command() {
 					#endif
 					axisSelected = 1;
 				}
-				if (next_target.seen_Y) {
+				if ((next_target.seen & (1<<L_Y)) != 0) {
 					#if defined	Y_MIN_PIN
 						home_y_negative();
 					#elif defined Y_MAX_PIN
@@ -218,7 +240,7 @@ void process_gcode_command() {
 					#endif
 					axisSelected = 1;
 				}
-				if (next_target.seen_Z) {
+				if ((next_target.seen & (1<<L_Z)) != 0) {
 					#if defined Z_MAX_PIN
 						home_z_positive();
 					#elif defined	Z_MIN_PIN
@@ -248,7 +270,7 @@ void process_gcode_command() {
 				//?
 
 				// No wait_queue() needed.
-				next_target.option_all_relative = 0;
+				// FIXME next_target.option_all_relative = 0;
 				break;
 
 			case 91:
@@ -260,7 +282,7 @@ void process_gcode_command() {
 				//?
 
 				// No wait_queue() needed.
-				next_target.option_all_relative = 1;
+				// FIXME next_target.option_all_relative = 1;
 				break;
 
 			case 92:
@@ -273,28 +295,28 @@ void process_gcode_command() {
 
 				queue_wait();
 
-				if (next_target.seen_X) {
-					startpoint.X = next_target.target.X;
+				if ((next_target.seen & (1<<L_X)) != 0) {
+					startpoint.parameters[L_X] = next_target.parameters[L_X];
 					axisSelected = 1;
 				}
-				if (next_target.seen_Y) {
-					startpoint.Y = next_target.target.Y;
+				if ((next_target.seen & (1<<L_Y)) != 0) {
+					startpoint.parameters[L_Y] = next_target.parameters[L_Y];
 					axisSelected = 1;
 				}
-				if (next_target.seen_Z) {
-					startpoint.Z = next_target.target.Z;
+				if ((next_target.seen & (1<<L_Z)) != 0) {
+					startpoint.parameters[L_Z] = next_target.parameters[L_Z];
 					axisSelected = 1;
 				}
-				if (next_target.seen_E) {
-					startpoint.E = next_target.target.E;
+				if ((next_target.seen & (1<<L_E)) != 0) {
+					startpoint.parameters[L_E] = next_target.parameters[L_E];
 					axisSelected = 1;
 				}
 
 				if (axisSelected == 0) {
-					startpoint.X = next_target.target.X =
-					startpoint.Y = next_target.target.Y =
-					startpoint.Z = next_target.target.Z =
-					startpoint.E = next_target.target.E = 0;
+					startpoint.parameters[L_X] = next_target.parameters[L_X] =
+					startpoint.parameters[L_Y] = next_target.parameters[L_Y] =
+					startpoint.parameters[L_Z] = next_target.parameters[L_Z] =
+					startpoint.parameters[L_E] = next_target.parameters[L_E] = 0;
 				}
 
 				dda_new_startpoint();
@@ -305,11 +327,11 @@ void process_gcode_command() {
 				//?
 				//? Find the minimum limit of the specified axes by searching for the limit switch.
 				//?
-				if (next_target.seen_X)
+				if ((next_target.seen & (1<<L_X)) != 0)
 					home_x_negative();
-				if (next_target.seen_Y)
+				if ((next_target.seen & (1<<L_Y)) != 0)
 					home_y_negative();
-				if (next_target.seen_Z)
+				if ((next_target.seen & (1<<L_Z)) != 0)
 					home_z_negative();
 				break;
 
@@ -318,17 +340,17 @@ void process_gcode_command() {
 				//?
 				//? Find the maximum limit of the specified axes by searching for the limit switch.
 				//?
-				if (next_target.seen_X)
+				if ((next_target.seen & (1<<L_X)) != 0)
 					home_x_positive();
-				if (next_target.seen_Y)
+				if ((next_target.seen & (1<<L_Y)) != 0)
 					home_y_positive();
-				if (next_target.seen_Z)
+				if ((next_target.seen & (1<<L_Z)) != 0)
 					home_z_positive();
 				break;
 
 				// unknown gcode: spit an error
 			default:
-				sersendf_P(PSTR("E: Bad G-code %d"), next_target.G);
+				sersendf_P(PSTR("E: Bad G-code %d"), next_target.parameters[L_G]);
 				// newline is sent from gcode_parse after we return
 				return;
 		}
@@ -337,10 +359,10 @@ void process_gcode_command() {
 				print_queue();
 		#endif
 	}
-	else if (next_target.seen_M) {
+	else if ((next_target.seen & (1<<L_M)) != 0) {
 		//uint8_t i;
 
-		switch (next_target.M) {
+		switch (next_target.parameters[L_M]) {
 			case 0:
 				//? --- M0: machine stop ---
 				//?
@@ -398,7 +420,7 @@ void process_gcode_command() {
 				//?
 
 				// No wait_queue() needed.
-				next_target.option_e_relative = 0;
+				// FIXME next_target.option_e_relative = 0;
 				break;
 
 			case 83:
@@ -408,7 +430,7 @@ void process_gcode_command() {
 				//?
 
 				// No wait_queue() needed.
-				next_target.option_e_relative = 1;
+				// FIXME next_target.option_e_relative = 1;
 				break;
 
 			// M84- stop idle hold
@@ -434,10 +456,10 @@ void process_gcode_command() {
 				#elif E_STARTSTOP_STEPS > 0
 					do {
 						// backup feedrate, move E very quickly then restore feedrate
-						backup_f = startpoint.F;
-						startpoint.F = MAXIMUM_FEEDRATE_E;
+						backup_f = startpoint.parameters[L_F];
+						startpoint.parameters[L_F] = MAXIMUM_FEEDRATE_E;
 						SpecialMoveE(E_STARTSTOP_STEPS, MAXIMUM_FEEDRATE_E);
-						startpoint.F = backup_f;
+						startpoint.parameters[L_F] = backup_f;
 					} while (0);
 				#endif
 				break;
@@ -455,10 +477,10 @@ void process_gcode_command() {
 				#elif E_STARTSTOP_STEPS > 0
 					do {
 						// backup feedrate, move E very quickly then restore feedrate
-						backup_f = startpoint.F;
-						startpoint.F = MAXIMUM_FEEDRATE_E;
+						backup_f = startpoint.parameters[L_F];
+						startpoint.parameters[L_F] = MAXIMUM_FEEDRATE_E;
 						SpecialMoveE(-E_STARTSTOP_STEPS, MAXIMUM_FEEDRATE_E);
-						startpoint.F = backup_f;
+						startpoint.parameters[L_F] = backup_f;
 					} while (0);
 				#endif
 				break;
@@ -471,12 +493,12 @@ void process_gcode_command() {
 				//? Set the temperature of the current extruder to 190<sup>o</sup>C and return control to the host immediately (''i.e.'' before that temperature has been reached by the extruder).  See also M109.
 				//? Teacup supports an optional P parameter as a sensor index to address (eg M104 P1 S100 will set the bed temperature rather than the extruder temperature).
 				//?
-				if ( ! next_target.seen_S)
+				if ( ! (next_target.seen & (1<<L_S)) != 0)
 					break;
-				if ( ! next_target.seen_P)
-					next_target.P = HEATER_EXTRUDER;
-				temp_set(next_target.P, next_target.S);
-				if (next_target.S)
+				if ( ! (next_target.seen & (1<<L_P)) != 0)
+					next_target.parameters[L_P] = HEATER_EXTRUDER;
+				temp_set(next_target.parameters[L_P], next_target.parameters[L_S]);
+				if (next_target.parameters[L_S])
 					power_on();
 				break;
 			*/
@@ -544,12 +566,12 @@ void process_gcode_command() {
 				//?
 				//? Teacup supports an optional P parameter as a sensor index to address.
 				//?
-				if ( ! next_target.seen_S)
+				if ( ! (next_target.seen & (1<<L_S)) != 0)
 					break;
-				if ( ! next_target.seen_P)
-					next_target.P = HEATER_EXTRUDER;
-				temp_set(next_target.P, next_target.S);
-				if (next_target.S) {
+				if ( ! (next_target.seen & (1<<L_P)) != 0)
+					next_target.parameters[L_P] = HEATER_EXTRUDER;
+				temp_set(next_target.parameters[L_P], next_target.parameters[L_S]);
+				if (next_target.parameters[L_S]) {
 					power_on();
 					// FIXME enable_heater();
 				}
@@ -586,9 +608,9 @@ void process_gcode_command() {
 				//?
 				//? This command is only available in DEBUG builds of Teacup.
 
-				if ( ! next_target.seen_S)
+				if ( ! (next_target.seen & (1<<L_S)) != 0)
 					break;
-				debug_flags = next_target.S;
+				debug_flags = next_target.parameters[L_S];
 				break;
 			#endif
 
@@ -610,7 +632,7 @@ void process_gcode_command() {
 					queue_wait();
 				#endif
 				update_current_position();
-				sersendf_P(PSTR("X:%lq,Y:%lq,Z:%lq,E:%lq,F:%ld"), current_position.X, current_position.Y, current_position.Z, current_position.E, current_position.F);
+				sersendf_P(PSTR("X:%lq,Y:%lq,Z:%lq,E:%lq,F:%ld"), current_position.parameters[L_X], current_position.parameters[L_Y], current_position.parameters[L_Z], current_position.parameters[L_E], current_position.parameters[L_F]);
 				// newline is sent from gcode_parse after we return
 				break;
 
@@ -716,7 +738,7 @@ void process_gcode_command() {
 				//? Undocumented
 				//? This command is only available in DEBUG builds.
 				update_current_position();
-				sersendf_P(PSTR("{X:%ld,Y:%ld,Z:%ld,E:%ld,F:%lu,c:%lu}\t{X:%ld,Y:%ld,Z:%ld,E:%ld,F:%lu,c:%lu}\t"), current_position.X, current_position.Y, current_position.Z, current_position.E, current_position.F, movebuffer[mb_tail].c, movebuffer[mb_tail].endpoint.X, movebuffer[mb_tail].endpoint.Y, movebuffer[mb_tail].endpoint.Z, movebuffer[mb_tail].endpoint.E, movebuffer[mb_tail].endpoint.F,
+				sersendf_P(PSTR("{X:%ld,Y:%ld,Z:%ld,E:%ld,F:%lu,c:%lu}\t{X:%ld,Y:%ld,Z:%ld,E:%ld,F:%lu,c:%lu}\t"), current_position.parameters[L_X], current_position.parameters[L_Y], current_position.parameters[L_Z], current_position.parameters[L_E], current_position.parameters[L_F], movebuffer[mb_tail].c, movebuffer[mb_tail].endpoint.parameters[L_X], movebuffer[mb_tail].endpoint.parameters[L_Y], movebuffer[mb_tail].endpoint.parameters[L_Z], movebuffer[mb_tail].endpoint.parameters[L_E], movebuffer[mb_tail].endpoint.parameters[L_F],
 					#ifdef ACCELERATION_REPRAP
 						movebuffer[mb_tail].end_c
 					#else
@@ -731,13 +753,13 @@ void process_gcode_command() {
 				//? --- M253: read arbitrary memory location ---
 				//? Undocumented
 				//? This command is only available in DEBUG builds.
-				if ( ! next_target.seen_S)
+				if ( ! (next_target.seen & (1<<L_S)) != 0)
 					break;
-				if ( ! next_target.seen_P)
-					next_target.P = 1;
-				for (; next_target.P; next_target.P--) {
-					serwrite_hex8(*(volatile uint8_t *)(next_target.S));
-					next_target.S++;
+				if ( ! (next_target.seen & (1<<L_P)) != 0)
+					next_target.parameters[L_P] = 1;
+				for (; next_target.parameters[L_P]; next_target.parameters[L_P]--) {
+					serwrite_hex8(*(volatile uint8_t *)(next_target.parameters[L_S]));
+					next_target.parameters[L_S]++;
 				}
 				// newline is sent from gcode_parse after we return
 				break;
@@ -746,18 +768,18 @@ void process_gcode_command() {
 				//? --- M254: write arbitrary memory location ---
 				//? Undocumented
 				//? This command is only available in DEBUG builds.
-				if ( ! next_target.seen_S || ! next_target.seen_P)
+				if ( ! (next_target.seen & (1<<L_S)) != 0 || ! (next_target.seen & (1<<L_P)) != 0)
 					break;
-				sersendf_P(PSTR("%x:%x->%x"), next_target.S, *(volatile uint8_t *)(next_target.S), next_target.P);
-				(*(volatile uint8_t *)(next_target.S)) = next_target.P;
+				sersendf_P(PSTR("%x:%x->%x"), next_target.parameters[L_S], *(volatile uint8_t *)(next_target.parameters[L_S]), next_target.parameters[L_P]);
+				(*(volatile uint8_t *)(next_target.parameters[L_S])) = next_target.parameters[L_P];
 				// newline is sent from gcode_parse after we return
 				break;
 			#endif /* DEBUG */
 
 				// unknown mcode: spit an error
 			default:
-				sersendf_P(PSTR("E: Bad M-code %d"), next_target.M);
+				sersendf_P(PSTR("E: Bad M-code %d"), next_target.parameters[L_M]);
 				// newline is sent from gcode_parse after we return
-		} // switch (next_target.M)
-	} // else if (next_target.seen_M)
+		} // switch (next_target.parameters[L_M])
+	} // else if ((next_target.seen & (1<<L_M)) != 0)
 } // process_gcode_command()

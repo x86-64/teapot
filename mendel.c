@@ -34,7 +34,6 @@
 #include	"serial.h"
 #include	"dda_queue.h"
 #include	"dda.h"
-#include	"gcode_parse.h"
 #include	"timer.h"
 #include	"debug.h"
 #include	"pinio.h"
@@ -251,9 +250,6 @@ void init(void) {
 
 	// set up serial
 	serial_init();
-
-	// set up G-code parsing
-	gcode_init();
 
 	// set up inputs and outputs
 	io_init();
