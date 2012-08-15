@@ -1,84 +1,64 @@
-#include	"gcode_parse.h"
 
 /** \file
 	\brief Parse received G-Codes
 */
-
+#include        "common.h"
 #include	<string.h>
 
 #include	"serial.h"
-#include	"dda_queue.h"
 #include	"debug.h"
+#include        "utils.h"
 
+#include	"gcode_parse.h"
 #include	"gcode_process.h"
 
-/// current or previous gcode word
-/// for working out what to do with data just received
-uint8_t last_field = 0;
+typedef enum lexer_token {
+	T_CHAR,
+	T_DIGIT,
+	T_SPACE,
+	T_NEWLINE,
+	T_SIGN,
+	T_DOT,
+	T_COMMENT_SEMICOLON,
+	T_COMMENT_START,
+	T_COMMENT_END,
+
+	T_INVALID
+} lexer_token;
+
+typedef enum parser_state {
+	S_PARSE_CHAR,
+	S_PARSE_NUMBER,
+	S_COMMENT_SEMI,
+	S_COMMENT_BRACKET,
+} parser_state;
 
 /// crude crc macro
 #define crc(a, b)		(a ^ b)
 
 /// crude floating point data storage
-decfloat read_digit					__attribute__ ((__section__ (".bss")));
+decfloat      read_digit					__attribute__ ((__section__ (".bss")));
 
 /// this is where we store all the data for the current command before we work out what to do with it
 GCODE_COMMAND next_target		__attribute__ ((__section__ (".bss")));
 
-/*
-	decfloat_to_int() is the weakest subject to variable overflow. For evaluation, we assume a build room of +-1000 mm and STEPS_PER_MM_x between 1.000 and 4096. Accordingly for metric units:
+parser_state  gcode_parser_state       = S_PARSE_CHAR;
+uint8_t       gcode_parser_char        = MAX_LETTER;
 
-		df->mantissa:  +-0..1048075    (20 bit - 500 for rounding)
-		df->exponent:  0, 2, 3, 4 or 5 (10 bit)
-		multiplicand:  1000            (10 bit)
-
-	imperial units:
-
-		df->mantissa:  +-0..32267      (15 bit - 500 for rounding)
-		df->exponent:  0, 2, 3, 4 or 5 (10 bit)
-		multiplicand:  25400           (15 bit)
-*/
-// decfloat_to_int() can handle a bit more:
-#define	DECFLOAT_EXP_MAX 3 // more is pointless, as 1 um is our presision
-// (2^^32 - 1) / multiplicand - powers[DECFLOAT_EXP_MAX] / 2 =
-// 4294967295 / 1000 - 5000 =
-#define	DECFLOAT_MANT_MM_MAX 4289967  // = 4290 mm
-// 4294967295 / 25400 - 5000 =
-#define	DECFLOAT_MANT_IN_MAX 164093   // = 164 inches = 4160 mm
-
-/*
-	utility functions
-*/
-extern const uint32_t powers[];  // defined in sermsg.c
-
-/// convert a floating point input value into an integer with appropriate scaling.
-/// \param *df pointer to floating point structure that holds fp value to convert
-/// \param multiplicand multiply by this amount during conversion to integer
-///
-/// Tested for up to 42'000 mm (accurate), 420'000 mm (precision 10 um) and
-/// 4'200'000 mm (precision 100 um).
-static int32_t decfloat_to_int(decfloat *df, uint16_t multiplicand) {
-	uint32_t	r = df->mantissa;
-	uint8_t	e = df->exponent;
-
-	// e=1 means we've seen a decimal point but no digits after it, and e=2 means we've seen a decimal point with one digit so it's too high by one if not zero
-	if (e)
-		e--;
-
-	// This raises range for mm by factor 1000 and for inches by factor 100.
-	// It's a bit expensive, but we should have the time while parsing.
-	while (e && multiplicand % 10 == 0) {
-		multiplicand /= 10;
-		e--;
+static lexer_token  gcode_lexer(uint8_t c){
+	      if(c >= 'A' && c <= 'Z'){      return T_CHAR;
+	}else if(c == '*'){                  return T_CHAR;
+	}else if(c >= '0' || c <= '9'){      return T_DIGIT;
+	}else if(c == ' ' || c == '\t'){     return T_SPACE;
+	}else if(c == '\r' || c == '\n'){    return T_NEWLINE;
+	}else if(c == '-'){                  return T_SIGN;
+	}else if(c == '.'){                  return T_DOT;
+	}else if(c == ';'){                  return T_COMMENT_SEMICOLON;
+	}else if(c == '('){                  return T_COMMENT_START;
+	}else if(c == ')'){                  return T_COMMENT_END;
 	}
-
-	r *= multiplicand;
-	if (e)
-		r = (r + powers[e] / 2) / powers[e];
-
-	return df->sign ? -(int32_t)r : (int32_t)r;
+	return T_INVALID;
 }
-
 
 typedef enum lexer_token {
 	T_CHAR,
@@ -147,6 +127,7 @@ void gcode_parse_char(uint8_t c){
 		c &= ~32;
 	
 	type = gcode_lexer(c);
+redo:;
 	switch(gcode_parser_state){
 		case S_PARSE_CHAR: // wait for parameter name mode
 			switch(type){
@@ -156,12 +137,13 @@ void gcode_parse_char(uint8_t c){
 				
 				// this is axis or some other parameter
 				case T_CHAR:
-					gcode_parser_char  = gcode_convert_char(c);
+					if( (gcode_parser_char = gcode_convert_char(c)) == MAX_LETTER)
+						goto error; // unknown parameter letter
 					gcode_parser_state = S_PARSE_NUMBER;
 					
 					// clean read_digit before parsing anything
 					read_digit.sign = read_digit.mantissa = read_digit.exponent = 0;
-
+					
 					// set seen flag
 					next_target.seen |= 1 << gcode_parser_char;
 					break;
@@ -183,7 +165,7 @@ void gcode_parse_char(uint8_t c){
 					break; 
 				
 				default:
-					goto error;
+					goto error; // ERR unknown token for this mode
 			}
 			break;
 			
@@ -210,17 +192,21 @@ void gcode_parse_char(uint8_t c){
 						read_digit.exponent = 1;
 					break;
 					
-				case T_SPACE: // we finished
+				case T_NEWLINE: // we finished
+				case T_SPACE:   
 					// since we use universal parameters table - all conversions to inch or mm goes to according modules
 					next_target.parameters[gcode_parser_char] = decfloat_to_int(&read_digit, 1);
 					
 					gcode_parser_state = S_PARSE_CHAR;
 					gcode_parser_char  = MAX_LETTER;
+					
+					if(type == T_NEWLINE) goto redo; // if this is newline - then S_PARSE_CHAR would be interested in this, redo switching
 					break;
 					
 				default:
-					goto error;
+					goto error; // ERR unknown token for this mode
 			}
+			break;
 		
 		// comments
 		case S_COMMENT_SEMI:
