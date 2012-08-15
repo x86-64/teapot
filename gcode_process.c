@@ -93,7 +93,9 @@ void process_gcode_command() {
 			next_target.target.Z = Z_MAX * 1000.;
 	#endif
 
-
+	
+	core_emit(EVENT_GCODE_PROCESS);
+	
 	// The GCode documentation was taken from http://reprap.org/wiki/Gcode .
 
 	if (next_target.seen_T) {
