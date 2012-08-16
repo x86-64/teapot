@@ -43,10 +43,6 @@ MOVE_STATE move_state __attribute__ ((__section__ (".bss")));
 /*! Inititalise DDA movement structures
 */
 void dda_init(void) {
-	// set up default feedrate
-	if (startpoint.F == 0)
-		startpoint.F = next_target.target.F = SEARCH_FEEDRATE_Z;
-
 	#ifdef ACCELERATION_RAMPING
 		move_state.n = 1;
 		move_state.c = ((uint32_t)((double)F_CPU / sqrt((double)(STEPS_PER_M_X * ACCELERATION / 1000.)))) << 8;
