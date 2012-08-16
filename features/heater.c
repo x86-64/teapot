@@ -433,6 +433,13 @@ void heater_print(uint16_t i) {
 #endif
 
 /*
+#if E_STARTSTOP_STEPS > 0
+/// move E by a certain amount at a certain speed
+static void SpecialMoveE(int32_t e, uint32_t f) {
+	TARGET t = { 0L, 0L, 0L, e, f, 1 };
+	enqueue(&t);
+}
+#endif  E_STARTSTOP_STEPS > 0 
 
 void heater_gcode_process(void){
 	case 'M':
@@ -462,6 +469,84 @@ void heater_gcode_process(void){
 				} while (0);
 			#endif
 			break;
+
+			// M102- extruder reverse
+
+			// M5/M103- extruder off
+			case 5:
+			case 103:
+				//? --- M103: extruder off ---
+				//?
+				//? Undocumented.
+				#ifdef DC_EXTRUDER
+					heater_set(DC_EXTRUDER, 0);
+				#elif E_STARTSTOP_STEPS > 0
+					do {
+						// backup feedrate, move E very quickly then restore feedrate
+						backup_f = startpoint.parameters[L_F];
+						startpoint.parameters[L_F] = MAXIMUM_FEEDRATE_E;
+						SpecialMoveE(-E_STARTSTOP_STEPS, MAXIMUM_FEEDRATE_E);
+						startpoint.parameters[L_F] = backup_f;
+					} while (0);
+				#endif
+				break;
+			// FIXME extruder temp 
+			case 104:
+				//? --- M104: Set Extruder Temperature (Fast) ---
+				//?
+				//? Example: M104 S190
+				//?
+				//? Set the temperature of the current extruder to 190<sup>o</sup>C and return control to the host immediately (''i.e.'' before that temperature has been reached by the extruder).  See also M109.
+				//? Teacup supports an optional P parameter as a sensor index to address (eg M104 P1 S100 will set the bed temperature rather than the extruder temperature).
+				//?
+				if ( ! (next_target.seen & (1<<L_S)) != 0)
+					break;
+				if ( ! (next_target.seen & (1<<L_P)) != 0)
+					next_target.parameters[L_P] = HEATER_EXTRUDER;
+				temp_set(next_target.parameters[L_P], next_target.parameters[L_S]);
+				if (next_target.parameters[L_S])
+					power_on();
+				break;
+			case 105:
+				//? --- M105: Get Extruder Temperature ---
+				//?
+				//? Example: M105
+				//?
+				//? Request the temperature of the current extruder and the build base in degrees Celsius.  The temperatures are returned to the host computer.  For example, the line sent to the host in response to this command looks like
+				//?
+				//? <tt>ok T:201 B:117</tt>
+				//?
+				//? Teacup supports an optional P parameter as a sensor index to address.
+				//?
+				#ifdef ENFORCE_ORDER
+					queue_wait();
+				#endif
+				temp_print();
+				break;
+			 FIXME extruder temp
+			case 109:
+				//? --- M109: Set Extruder Temperature ---
+				//?
+				//? Example: M109 S190
+				//?
+				//? Set the temperature of the current extruder to 190<sup>o</sup>C and wait for it to reach that value before sending an acknowledgment to the host.  In fact the RepRap firmware waits a while after the temperature has been reached for the extruder to stabilise - typically about 40 seconds.  This can be changed by a parameter in the firmware configuration file when the firmware is compiled.  See also M104 and M116.
+				//?
+				//? Teacup supports an optional P parameter as a sensor index to address.
+				//?
+				if ( ! (next_target.seen & (1<<L_S)) != 0)
+					break;
+				if ( ! (next_target.seen & (1<<L_P)) != 0)
+					next_target.parameters[L_P] = HEATER_EXTRUDER;
+				temp_set(next_target.parameters[L_P], next_target.parameters[L_S]);
+				if (next_target.parameters[L_S]) {
+					power_on();
+					// FIXME enable_heater();
+				}
+				else {
+					// FIXME disable_heater();
+				}
+				enqueue(NULL);
+				break;
 		case 109:
 			//? --- M109: Set Extruder Temperature ---
 			//?
@@ -561,6 +646,8 @@ void heater_gcode_process(void){
 			// newline is sent from gcode_parse after we return
 			break;
 	}
+
+			// M113- extruder PWM
 }
 */
 
