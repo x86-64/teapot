@@ -24,5 +24,8 @@
 
 #include "core.h"
 #include "features.h"
+#include "gcode_parse.h"
+#include "gcode_process.h"
+#include "serial.h"
 
 #include "config.h"
