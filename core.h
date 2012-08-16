@@ -7,6 +7,7 @@ typedef void (*event_func)(void);
 
 typedef enum core_event_type {
 	EVENT_INIT,
+	EVENT_TICK,
 	EVENT_TICK_10MS,
 	EVENT_GCODE_PROCESS,
 
