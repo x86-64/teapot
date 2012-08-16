@@ -51,6 +51,25 @@ volatile uint8_t	clock_flag_1s = 0;
 
 void timer_hardware_set(uint32_t delay);
 
+void timers_gcode(void){
+	if(! PARAMETER_SEEN(L_M))
+		return;
+	
+	switch(PARAMETER(L_M)){
+		case 112:
+			//? --- M112: Emergency Stop ---
+			//?
+			//? Example: M112
+			//?
+			//? Any moves in progress are immediately terminated, then RepRap shuts down.  All motors and heaters are turned off.
+			//? It can be started again by pressing the reset button on the master microcontroller.  See also M0.
+			//?
+			
+			timers_stop();
+			break;
+	}
+}
+
 /// initialise timer and enable system clock interrupt.
 /// step interrupt is enabled later when we start using it
 void timers_init()
@@ -63,6 +82,8 @@ void timers_init()
 	OCR1B = TICK_TIME & 0xFFFF;
 	// enable interrupt
 	TIMSK1 = MASK(OCIE1B);
+	
+	core_register(EVENT_GCODE_PROCESS, &timers_gcode);
 }
 
 void timers_update(uint32_t time_passed){
@@ -137,9 +158,6 @@ ISR(TIMER1_COMPB_vect) {
 	MEMORY_BARRIER();
 	SREG = sreg_save;
 }
-
-
-#ifdef	HOST
 
 /// comparator A is the step timer. It has higher priority then B.
 ISR(TIMER1_COMPA_vect) {
@@ -263,7 +281,6 @@ void timers_stop() {
 	// disable all interrupts
 	TIMSK1 = 0;
 }
-#endif /* ifdef HOST */
 
 void timer_setup(uint8_t id, timer_callback callback, void *userdata){
 	timers[id].callback  = callback;
