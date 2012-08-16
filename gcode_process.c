@@ -17,40 +17,18 @@
 #include	"pinio.h"
 #include	"debug.h"
 #include	"common.h"
-#include	"home.h"
-
-/// the current tool
-uint8_t tool;
-
-/// the tool to be changed when we get an M6
-uint8_t next_tool;
-
-
-/*
-	private functions
-
-	this is where we construct a move without a gcode command, useful for gcodes which require multiple moves eg; homing
-*/
-
-#if E_STARTSTOP_STEPS > 0
-/// move E by a certain amount at a certain speed
-static void SpecialMoveE(int32_t e, uint32_t f) {
-	TARGET t = { 0L, 0L, 0L, e, f, 1 };
-	enqueue(&t);
-}
-#endif /* E_STARTSTOP_STEPS > 0 */
 
 /***************************************************************************\
 *                                                                           *
 * Request a resend of the current line - used from various places.          *
 *                                                                           *
-* Relies on the global variable next_target.parameters[L_N] being valid.                  *
+* Relies on the global variable PARAMETER(L_N) being valid.                  *
 *                                                                           *
 \***************************************************************************/
 
 void request_resend(void) {
 	serial_writestr_P(PSTR("rs "));
-	serwrite_uint8(next_target.parameters[L_N]);
+	serwrite_uint8(PARAMETER(L_N));
 	serial_writechar('\n');
 }
 
@@ -67,101 +45,33 @@ uint32_t N_expected;
 *//*************************************************************************/
 
 void process_gcode_command() {
-	uint32_t	backup_f;
-
-	// implement axis limits
-	#ifdef	X_MIN
-		if (next_target.parameters[L_X] < X_MIN * 1000.)
-			next_target.parameters[L_X] = X_MIN * 1000.;
-	#endif
-	#ifdef	X_MAX
-		if (next_target.parameters[L_X] > X_MAX * 1000.)
-			next_target.parameters[L_X] = X_MAX * 1000.;
-	#endif
-	#ifdef	Y_MIN
-		if (next_target.parameters[L_Y] < Y_MIN * 1000.)
-			next_target.parameters[L_Y] = Y_MIN * 1000.;
-	#endif
-	#ifdef	Y_MAX
-		if (next_target.parameters[L_Y] > Y_MAX * 1000.)
-			next_target.parameters[L_Y] = Y_MAX * 1000.;
-	#endif
-	#ifdef	Z_MIN
-		if (next_target.parameters[L_Z] < Z_MIN * 1000.)
-			next_target.parameters[L_Z] = Z_MIN * 1000.;
-	#endif
-	#ifdef	Z_MAX
-		if (next_target.parameters[L_Z] > Z_MAX * 1000.)
-			next_target.parameters[L_Z] = Z_MAX * 1000.;
-	#endif
-	
 	#ifdef	REQUIRE_LINENUMBER
 		if( 
-			((next_target.parameters[L_N] >= N_expected) && ((next_target.seen & (1<<L_N)) != 0)) ||
-			((next_target.seen & (1<<L_M)) != 0 && (next_target.parameters[L_M] == 110))){
+			((PARAMETER(L_N) >= N_expected) && (PARAMETER_SEEN(L_N))) ||
+			(PARAMETER_SEEN(L_M) && (PARAMETER(L_M) == 110))){
 		}else {
-			sersendf_P(PSTR("rs N%ld Expected line number %ld\n"), next_target.parameters[L_N], N_expected);
+			sersendf_P(PSTR("rs N%ld Expected line number %ld\n"), PARAMETER(L_N), N_expected);
 			//request_resend();
 		}
 			
 		// expect next line number
-		if ((next_target.seen & (1<<L_N)) != 0)
-			N_expected = next_target.parameters[L_N] + 1;
+		if (PARAMETER_SEEN(L_N))
+			N_expected = PARAMETER(L_N) + 1;
 	#endif
+	
 	#ifdef	REQUIRE_CHECKSUM
 		if( ((next_target.seen & (1<<L_CHECKSUM)) != 0) || (next_target.checksum_calculated != next_target.checksum_read) ){
 			sersendf_P(PSTR("rs N%ld Expected checksum %d\n"), N_expected, next_target.checksum_calculated);
 			//request_resend();
 		}
 	#endif
-
 	
 	core_emit(EVENT_GCODE_PROCESS);
 	
 	// The GCode documentation was taken from http://reprap.org/wiki/Gcode .
-
-	if ((next_target.seen & (1<<L_T)) != 0) {
-	    //? --- T: Select Tool ---
-	    //?
-	    //? Example: T1
-	    //?
-	    //? Select extruder number 1 to build with.  Extruder numbering starts at 0.
-
-	    next_tool = next_target.parameters[L_T];
-	}
-
-	if ((next_target.seen & (1<<L_G)) != 0) {
-		uint8_t axisSelected = 0;
-		switch (next_target.parameters[L_G]) {
-			case 0:
-				//? G0: Rapid Linear Motion
-				//?
-				//? Example: G0 X12
-				//?
-				//? In this case move rapidly to X = 12 mm.  In fact, the RepRap firmware uses exactly the same code for rapid as it uses for controlled moves (see G1 below), as - for the RepRap machine - this is just as efficient as not doing so.  (The distinction comes from some old machine tools that used to move faster if the axes were not driven in a straight line.  For them G0 allowed any movement in space to get to the destination as fast as possible.)
-				//?
-				backup_f = next_target.parameters[L_F];
-				next_target.parameters[L_F] = MAXIMUM_FEEDRATE_X * 2L;
-				enqueue(&next_target.target);
-				next_target.parameters[L_F] = backup_f;
-				break;
-
-			case 1:
-				//? --- G1: Linear Motion at Feed Rate ---
-				//?
-				//? Example: G1 X90.6 Y13.8 E22.4
-				//?
-				//? Go in a straight line from the current (X, Y) point to the point (90.6, 13.8), extruding material as the move happens from the current extruded length to a length of 22.4 mm.
-				//?
-				enqueue(&next_target.target);
-				break;
-
-				//	G2 - Arc Clockwise
-				// unimplemented
-
-				//	G3 - Arc Counter-clockwise
-				// unimplemented
-
+	
+	if (PARAMETER_SEEN(L_G)) {
+		switch (PARAMETER(L_G)) {
 			case 4:
 				//? --- G4: Dwell ---
 				//?
@@ -171,198 +81,18 @@ void process_gcode_command() {
 				//?
 				queue_wait();
 				// delay
-				if ((next_target.seen & (1<<L_P)) != 0) {
-					for (;next_target.parameters[L_P] > 0;next_target.parameters[L_P]--) {
-						ifclock(clock_flag_10ms) {
-							clock_10ms();
-						}
+				if (PARAMETER_SEEN(L_P)) {
+					uint32_t delay;
+					
+					for (delay = PARAMETER(L_P); delay > 0; delay--){
+						core_emit(EVENT_TICK);
 						delay_ms(1);
 					}
 				}
 				break;
-
-			case 20:
-				//? --- G20: Set Units to Inches ---
-				//?
-				//? Example: G20
-				//?
-				//? Units from now on are in inches.
-				//?
-				// FIXME next_target.option_inches = 1;
-				break;
-
-			case 21:
-				//? --- G21: Set Units to Millimeters ---
-				//?
-				//? Example: G21
-				//?
-				//? Units from now on are in millimeters.  (This is the RepRap default.)
-				//?
-				// FIXME next_target.option_inches = 0;
-				break;
-
-			case 30:
-				//? --- G30: Go home via point ---
-				//?
-				//? Undocumented.
-				enqueue(&next_target.target);
-				// no break here, G30 is move and then go home
-
-			case 28:
-				//? --- G28: Home ---
-				//?
-				//? Example: G28
-				//?
-				//? This causes the RepRap machine to move back to its X, Y and Z zero endstops.  It does so accelerating, so as to get there fast.  But when it arrives it backs off by 1 mm in each direction slowly, then moves back slowly to the stop.  This ensures more accurate positioning.
-				//?
-				//? If you add coordinates, then just the axes with coordinates specified will be zeroed.  Thus
-				//?
-				//? G28 X0 Y72.3
-				//?
-				//? will zero the X and Y axes, but not Z.  The actual coordinate values are ignored.
-				//?
-
-				queue_wait();
-
-				if ((next_target.seen & (1<<L_X)) != 0) {
-					#if defined	X_MIN_PIN
-						home_x_negative();
-					#elif defined X_MAX_PIN
-						home_x_positive();
-					#endif
-					axisSelected = 1;
-				}
-				if ((next_target.seen & (1<<L_Y)) != 0) {
-					#if defined	Y_MIN_PIN
-						home_y_negative();
-					#elif defined Y_MAX_PIN
-						home_y_positive();
-					#endif
-					axisSelected = 1;
-				}
-				if ((next_target.seen & (1<<L_Z)) != 0) {
-					#if defined Z_MAX_PIN
-						home_z_positive();
-					#elif defined	Z_MIN_PIN
-						home_z_negative();
-					#endif
-					axisSelected = 1;
-				}
-				// there's no point in moving E, as E has no endstops
-
-				if (!axisSelected) {
-					home();
-				}
-				break;
-
-			case 90:
-				//? --- G90: Set to Absolute Positioning ---
-				//?
-				//? Example: G90
-				//?
-				//? All coordinates from now on are absolute relative to the origin
-				//? of the machine. This is the RepRap default.
-				//?
-				//? If you ever want to switch back and forth between relative and
-				//? absolute movement keep in mind, X, Y and Z follow the machine's
-				//? coordinate system while E doesn't change it's position in the
-				//? coordinate system on relative movements.
-				//?
-
-				// No wait_queue() needed.
-				// FIXME next_target.option_all_relative = 0;
-				break;
-
-			case 91:
-				//? --- G91: Set to Relative Positioning ---
-				//?
-				//? Example: G91
-				//?
-				//? All coordinates from now on are relative to the last position.
-				//?
-
-				// No wait_queue() needed.
-				// FIXME next_target.option_all_relative = 1;
-				break;
-
-			case 92:
-				//? --- G92: Set Position ---
-				//?
-				//? Example: G92 X10 E90
-				//?
-				//? Allows programming of absolute zero point, by reseting the current position to the values specified.  This would set the machine's X coordinate to 10, and the extrude coordinate to 90. No physical motion will occur.
-				//?
-
-				queue_wait();
-
-				if ((next_target.seen & (1<<L_X)) != 0) {
-					startpoint.parameters[L_X] = next_target.parameters[L_X];
-					axisSelected = 1;
-				}
-				if ((next_target.seen & (1<<L_Y)) != 0) {
-					startpoint.parameters[L_Y] = next_target.parameters[L_Y];
-					axisSelected = 1;
-				}
-				if ((next_target.seen & (1<<L_Z)) != 0) {
-					startpoint.parameters[L_Z] = next_target.parameters[L_Z];
-					axisSelected = 1;
-				}
-				if ((next_target.seen & (1<<L_E)) != 0) {
-					startpoint.parameters[L_E] = next_target.parameters[L_E];
-					axisSelected = 1;
-				}
-
-				if (axisSelected == 0) {
-					startpoint.parameters[L_X] = next_target.parameters[L_X] =
-					startpoint.parameters[L_Y] = next_target.parameters[L_Y] =
-					startpoint.parameters[L_Z] = next_target.parameters[L_Z] =
-					startpoint.parameters[L_E] = next_target.parameters[L_E] = 0;
-				}
-
-				dda_new_startpoint();
-				break;
-
-			case 161:
-				//? --- G161: Home negative ---
-				//?
-				//? Find the minimum limit of the specified axes by searching for the limit switch.
-				//?
-				if ((next_target.seen & (1<<L_X)) != 0)
-					home_x_negative();
-				if ((next_target.seen & (1<<L_Y)) != 0)
-					home_y_negative();
-				if ((next_target.seen & (1<<L_Z)) != 0)
-					home_z_negative();
-				break;
-
-			case 162:
-				//? --- G162: Home positive ---
-				//?
-				//? Find the maximum limit of the specified axes by searching for the limit switch.
-				//?
-				if ((next_target.seen & (1<<L_X)) != 0)
-					home_x_positive();
-				if ((next_target.seen & (1<<L_Y)) != 0)
-					home_y_positive();
-				if ((next_target.seen & (1<<L_Z)) != 0)
-					home_z_positive();
-				break;
-
-				// unknown gcode: spit an error
-			default:
-				sersendf_P(PSTR("E: Bad G-code %d"), next_target.parameters[L_G]);
-				// newline is sent from gcode_parse after we return
-				return;
 		}
-		#ifdef	DEBUG
-			if (DEBUG_POSITION && (debug_flags & DEBUG_POSITION))
-				print_queue();
-		#endif
-	}
-	else if ((next_target.seen & (1<<L_M)) != 0) {
-		//uint8_t i;
-
-		switch (next_target.parameters[L_M]) {
+	}else if (PARAMETER_SEEN(L_M)) {
+		switch (PARAMETER(L_M)) {
 			case 0:
 				//? --- M0: machine stop ---
 				//?
@@ -379,8 +109,20 @@ void process_gcode_command() {
 				//?
 				//? http://linuxcnc.org/handbook/RS274NGC_3/RS274NGC_33a.html#1002379
 				//?
-				queue_wait();
+			
+			case 191:
+				//? --- M191: Power Off ---
+				//? Undocumented.
+				//? Same as M2. RepRap obviously prefers to invent new numbers instead of looking into standards. 
 				power_off();
+				break;
+			
+			case 190:
+				//? --- M190: Power On ---
+				//? Undocumented.
+				//? This one is pointless in Teacup. Implemented to calm the RepRap gurus.
+				//?
+				power_on();
 				break;
 
 			case 112:
@@ -392,195 +134,11 @@ void process_gcode_command() {
 				//? It can be started again by pressing the reset button on the master microcontroller.  See also M0.
 				//?
 
-				timers_stop();
-				queue_flush();
 				power_off();
 				cli();
-				// ESTOP
-				//for (;;)
-				//	wd_reset();
+				for (;;)
+					core_emit(EVENT_TICK);
 				break;
-
-			case 6:
-				//? --- M6: tool change ---
-				//?
-				//? Undocumented.
-				tool = next_tool;
-				break;
-
-			case 82:
-				//? --- M82 - Set E codes absolute ---
-				//?
-				//? This is the default and overrides G90/G91.
-				//? M82/M83 is not documented in the RepRap wiki, behaviour
-				//? was taken from Sprinter as of March 2012.
-				//?
-				//? While E does relative movements, it doesn't change its
-				//? position in the coordinate system. See also comment on G90.
-				//?
-
-				// No wait_queue() needed.
-				// FIXME next_target.option_e_relative = 0;
-				break;
-
-			case 83:
-				//? --- M83 - Set E codes relative ---
-				//?
-				//? Counterpart to M82.
-				//?
-
-				// No wait_queue() needed.
-				// FIXME next_target.option_e_relative = 1;
-				break;
-
-			// M84- stop idle hold
-			case 84:
-				stepper_disable();
-				x_disable();
-				y_disable();
-				z_disable();
-				e_disable();
-				break;
-
-			// M3/M101- extruder on
-			case 3:
-			case 101:
-				//? --- M101: extruder on ---
-				//?
-				//? Undocumented.
-				if (temp_achieved() == 0) {
-					enqueue(NULL);
-				}
-				#ifdef DC_EXTRUDER
-					/* FIXME heater_set(DC_EXTRUDER, DC_EXTRUDER_PWM); */
-				#elif E_STARTSTOP_STEPS > 0
-					do {
-						// backup feedrate, move E very quickly then restore feedrate
-						backup_f = startpoint.parameters[L_F];
-						startpoint.parameters[L_F] = MAXIMUM_FEEDRATE_E;
-						SpecialMoveE(E_STARTSTOP_STEPS, MAXIMUM_FEEDRATE_E);
-						startpoint.parameters[L_F] = backup_f;
-					} while (0);
-				#endif
-				break;
-
-			// M102- extruder reverse
-
-			// M5/M103- extruder off
-			case 5:
-			case 103:
-				//? --- M103: extruder off ---
-				//?
-				//? Undocumented.
-				#ifdef DC_EXTRUDER
-					/* heater_set(DC_EXTRUDER, 0); */
-				#elif E_STARTSTOP_STEPS > 0
-					do {
-						// backup feedrate, move E very quickly then restore feedrate
-						backup_f = startpoint.parameters[L_F];
-						startpoint.parameters[L_F] = MAXIMUM_FEEDRATE_E;
-						SpecialMoveE(-E_STARTSTOP_STEPS, MAXIMUM_FEEDRATE_E);
-						startpoint.parameters[L_F] = backup_f;
-					} while (0);
-				#endif
-				break;
-			/* FIXME extruder temp 
-			case 104:
-				//? --- M104: Set Extruder Temperature (Fast) ---
-				//?
-				//? Example: M104 S190
-				//?
-				//? Set the temperature of the current extruder to 190<sup>o</sup>C and return control to the host immediately (''i.e.'' before that temperature has been reached by the extruder).  See also M109.
-				//? Teacup supports an optional P parameter as a sensor index to address (eg M104 P1 S100 will set the bed temperature rather than the extruder temperature).
-				//?
-				if ( ! (next_target.seen & (1<<L_S)) != 0)
-					break;
-				if ( ! (next_target.seen & (1<<L_P)) != 0)
-					next_target.parameters[L_P] = HEATER_EXTRUDER;
-				temp_set(next_target.parameters[L_P], next_target.parameters[L_S]);
-				if (next_target.parameters[L_S])
-					power_on();
-				break;
-			*/
-			case 105:
-				//? --- M105: Get Extruder Temperature ---
-				//?
-				//? Example: M105
-				//?
-				//? Request the temperature of the current extruder and the build base in degrees Celsius.  The temperatures are returned to the host computer.  For example, the line sent to the host in response to this command looks like
-				//?
-				//? <tt>ok T:201 B:117</tt>
-				//?
-				//? Teacup supports an optional P parameter as a sensor index to address.
-				//?
-				#ifdef ENFORCE_ORDER
-					queue_wait();
-				#endif
-				temp_print();
-				break;
-
-			case 7:
-			case 106:
-				//? --- M106: Fan On ---
-				//?
-				//? Example: M106
-				//?
-				//? Turn on the cooling fan (if any).
-				//?
-
-				#ifdef ENFORCE_ORDER
-					// wait for all moves to complete
-					queue_wait();
-				#endif
-				/* FIXME #ifdef HEATER_FAN
-					heater_set(HEATER_FAN, 255);
-				#endif
-				*/
-				break;
-
-			case 9:
-			case 107:
-				//? --- M107: Fan Off ---
-				//?
-				//? Example: M107
-				//?
-				//? Turn off the cooling fan (if any).
-				//?
-
-				#ifdef ENFORCE_ORDER
-					// wait for all moves to complete
-					queue_wait();
-				#endif
-				/* FIXME #ifdef HEATER_FAN
-					heater_set(HEATER_FAN, 0);
-				#endif
-				*/
-				break;
-			/* FIXME extruder temp
-			case 109:
-				//? --- M109: Set Extruder Temperature ---
-				//?
-				//? Example: M109 S190
-				//?
-				//? Set the temperature of the current extruder to 190<sup>o</sup>C and wait for it to reach that value before sending an acknowledgment to the host.  In fact the RepRap firmware waits a while after the temperature has been reached for the extruder to stabilise - typically about 40 seconds.  This can be changed by a parameter in the firmware configuration file when the firmware is compiled.  See also M104 and M116.
-				//?
-				//? Teacup supports an optional P parameter as a sensor index to address.
-				//?
-				if ( ! (next_target.seen & (1<<L_S)) != 0)
-					break;
-				if ( ! (next_target.seen & (1<<L_P)) != 0)
-					next_target.parameters[L_P] = HEATER_EXTRUDER;
-				temp_set(next_target.parameters[L_P], next_target.parameters[L_S]);
-				if (next_target.parameters[L_S]) {
-					power_on();
-					// FIXME enable_heater();
-				}
-				else {
-					// FIXME disable_heater();
-				}
-				enqueue(NULL);
-				break;
-			*/
 
 			case 110:
 				//? --- M110: Set Current Line Number ---
@@ -590,50 +148,6 @@ void process_gcode_command() {
 				//? Set the current line number to 123.  Thus the expected next line after this command will be 124.
 				//? This is a no-op in Teacup.
 				//?
-				break;
-
-			#ifdef	DEBUG
-			case 111:
-				//? --- M111: Set Debug Level ---
-				//?
-				//? Example: M111 S6
-				//?
-				//? Set the level of debugging information transmitted back to the host to level 6.  The level is the OR of three bits:
-				//?
-				//? <Pre>
-				//? #define         DEBUG_PID       1
-				//? #define         DEBUG_DDA       2
-				//? #define         DEBUG_POSITION  4
-				//? </pre>
-				//?
-				//? This command is only available in DEBUG builds of Teacup.
-
-				if ( ! (next_target.seen & (1<<L_S)) != 0)
-					break;
-				debug_flags = next_target.parameters[L_S];
-				break;
-			#endif
-
-			// M113- extruder PWM
-
-			case 114:
-				//? --- M114: Get Current Position ---
-				//?
-				//? Example: M114
-				//?
-				//? This causes the RepRap machine to report its current X, Y, Z and E coordinates to the host.
-				//?
-				//? For example, the machine returns a string such as:
-				//?
-				//? <tt>ok C: X:0.00 Y:0.00 Z:0.00 E:0.00</tt>
-				//?
-				#ifdef ENFORCE_ORDER
-					// wait for all moves to complete
-					queue_wait();
-				#endif
-				update_current_position();
-				sersendf_P(PSTR("X:%lq,Y:%lq,Z:%lq,E:%lq,F:%ld"), current_position.parameters[L_X], current_position.parameters[L_Y], current_position.parameters[L_Z], current_position.parameters[L_E], current_position.parameters[L_F]);
-				// newline is sent from gcode_parse after we return
 				break;
 
 			case 115:
@@ -648,138 +162,8 @@ void process_gcode_command() {
 				//?  FIRMWARE_NAME:Teacup FIRMWARE_URL:http%%3A//github.com/triffid/Teacup_Firmware/ PROTOCOL_VERSION:1.0 MACHINE_TYPE:Mendel EXTRUDER_COUNT:1 TEMP_SENSOR_COUNT:1 HEATER_COUNT:1
 				//?
 
-				sersendf_P(PSTR("FIRMWARE_NAME:Teacup FIRMWARE_URL:http%%3A//github.com/triffid/Teacup_Firmware/ PROTOCOL_VERSION:1.0 MACHINE_TYPE:Mendel EXTRUDER_COUNT:%d TEMP_SENSOR_COUNT:0 HEATER_COUNT:0"), 1);
-				// FIXME number of temp sensors, number of heaters
-				// newline is sent from gcode_parse after we return
+				sersendf_P(PSTR("FIRMWARE_NAME:Teacup FIRMWARE_URL:http%%3A//github.com/triffid/Teacup_Firmware/ PROTOCOL_VERSION:%d.0 MACHINE_TYPE:Mendel "), 1);
 				break;
-
-			case 116:
-				//? --- M116: Wait ---
-				//?
-				//? Example: M116
-				//?
-				//? Wait for ''all'' temperatures and other slowly-changing variables to arrive at their set values.  See also M109.
-
-				enqueue(NULL);
-				break;
-
-			case 190:
-				//? --- M190: Power On ---
-				//? Undocumented.
-				//? This one is pointless in Teacup. Implemented to calm the RepRap gurus.
-				//?
-				power_on();
-				stepper_enable();
-				x_enable();
-				y_enable();
-				z_enable();
-				e_enable();
-				break;
-
-			case 191:
-				//? --- M191: Power Off ---
-				//? Undocumented.
-				//? Same as M2. RepRap obviously prefers to invent new numbers instead of looking into standards. 
-				#ifdef ENFORCE_ORDER
-					// wait for all moves to complete
-					queue_wait();
-				#endif
-				power_off();
-				break;
-
-			case 200:
-				//? --- M200: report endstop status ---
-				//? Report the current status of the endstops configured in the firmware to the host.
-				power_on();
-				#if defined(X_MIN_PIN)
-					sersendf_P(PSTR("x_min:%d "), x_min());
-				#endif
-				#if defined(X_MAX_PIN)
-					sersendf_P(PSTR("x_max:%d "), x_max());
-				#endif
-				#if defined(Y_MIN_PIN)
-					sersendf_P(PSTR("y_min:%d "), y_min());
-				#endif
-				#if defined(Y_MAX_PIN)
-					sersendf_P(PSTR("y_max:%d "), y_max());
-				#endif
-				#if defined(Z_MIN_PIN)
-					sersendf_P(PSTR("z_min:%d "), z_min());
-				#endif
-				#if defined(Z_MAX_PIN)
-					sersendf_P(PSTR("z_max:%d "), z_max());
-				#endif
-				#if !(defined(X_MIN_PIN) || defined(X_MAX_PIN) || defined(Y_MIN_PIN) || defined(Y_MAX_PIN) || defined(Z_MIN_PIN) || defined(Z_MAX_PIN))
-					sersendf_P(PSTR("no endstops defined"));
-				#endif
-				break;
-
-			#ifdef	DEBUG
-			case 240:
-				//? --- M240: echo off ---
-				//? Disable echo.
-				//? This command is only available in DEBUG builds.
-				debug_flags &= ~DEBUG_ECHO;
-				serial_writestr_P(PSTR("Echo off"));
-				// newline is sent from gcode_parse after we return
-				break;
-
-			case 241:
-				//? --- M241: echo on ---
-				//? Enable echo.
-				//? This command is only available in DEBUG builds.
-				debug_flags |= DEBUG_ECHO;
-				serial_writestr_P(PSTR("Echo on"));
-				// newline is sent from gcode_parse after we return
-				break;
-
-			case 250:
-				//? --- M250: return current position, end position, queue ---
-				//? Undocumented
-				//? This command is only available in DEBUG builds.
-				update_current_position();
-				sersendf_P(PSTR("{X:%ld,Y:%ld,Z:%ld,E:%ld,F:%lu,c:%lu}\t{X:%ld,Y:%ld,Z:%ld,E:%ld,F:%lu,c:%lu}\t"), current_position.parameters[L_X], current_position.parameters[L_Y], current_position.parameters[L_Z], current_position.parameters[L_E], current_position.parameters[L_F], movebuffer[mb_tail].c, movebuffer[mb_tail].endpoint.parameters[L_X], movebuffer[mb_tail].endpoint.parameters[L_Y], movebuffer[mb_tail].endpoint.parameters[L_Z], movebuffer[mb_tail].endpoint.parameters[L_E], movebuffer[mb_tail].endpoint.parameters[L_F],
-					#ifdef ACCELERATION_REPRAP
-						movebuffer[mb_tail].end_c
-					#else
-						movebuffer[mb_tail].c
-					#endif
-					);
-
-				print_queue();
-				break;
-
-			case 253:
-				//? --- M253: read arbitrary memory location ---
-				//? Undocumented
-				//? This command is only available in DEBUG builds.
-				if ( ! (next_target.seen & (1<<L_S)) != 0)
-					break;
-				if ( ! (next_target.seen & (1<<L_P)) != 0)
-					next_target.parameters[L_P] = 1;
-				for (; next_target.parameters[L_P]; next_target.parameters[L_P]--) {
-					serwrite_hex8(*(volatile uint8_t *)(next_target.parameters[L_S]));
-					next_target.parameters[L_S]++;
-				}
-				// newline is sent from gcode_parse after we return
-				break;
-
-			case 254:
-				//? --- M254: write arbitrary memory location ---
-				//? Undocumented
-				//? This command is only available in DEBUG builds.
-				if ( ! (next_target.seen & (1<<L_S)) != 0 || ! (next_target.seen & (1<<L_P)) != 0)
-					break;
-				sersendf_P(PSTR("%x:%x->%x"), next_target.parameters[L_S], *(volatile uint8_t *)(next_target.parameters[L_S]), next_target.parameters[L_P]);
-				(*(volatile uint8_t *)(next_target.parameters[L_S])) = next_target.parameters[L_P];
-				// newline is sent from gcode_parse after we return
-				break;
-			#endif /* DEBUG */
-
-				// unknown mcode: spit an error
-			default:
-				sersendf_P(PSTR("E: Bad M-code %d"), next_target.parameters[L_M]);
-				// newline is sent from gcode_parse after we return
-		} // switch (next_target.parameters[L_M])
-	} // else if ((next_target.seen & (1<<L_M)) != 0)
+		} // switch (PARAMETER(L_M))
+	} // else if (PARAMETER_SEEN(L_M))
 } // process_gcode_command()
