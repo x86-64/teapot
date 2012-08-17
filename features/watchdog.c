@@ -1,3 +1,4 @@
+#define FEATURE
 #include "common.h"
 
 // CONFIGURATION
