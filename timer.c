@@ -51,7 +51,7 @@ volatile uint8_t	clock_flag_1s = 0;
 
 void timer_hardware_set(uint32_t delay);
 
-void timers_gcode(void){
+void timers_gcode(void *next_target){
 	if(! PARAMETER_SEEN(L_M))
 		return;
 	

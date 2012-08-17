@@ -3,7 +3,7 @@
 
 #define MAX_FUNCS 5
 
-typedef void (*event_func)(void);
+typedef void (*event_func)(void *userdata);
 
 typedef enum core_event_type {
 	EVENT_INIT,
@@ -15,6 +15,6 @@ typedef enum core_event_type {
 } core_event_type;
 
 int  core_register(core_event_type type, event_func core_event);
-void core_emit(core_event_type type);
+void core_emit(core_event_type type, void *userdata);
 
 #endif

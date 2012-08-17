@@ -50,7 +50,7 @@ ISR(WDT_vect) {
 }
 
 /// reset watchdog. MUST be called every 0.5s after init or avr will reset.
-void wd_reset(void) {
+void wd_reset(void *userdata) {
 	wdt_reset();
 	if (wd_flag) {
 		WDTCSR |= MASK(WDIE);

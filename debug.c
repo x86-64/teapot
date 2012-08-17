@@ -3,7 +3,7 @@
 
 volatile uint8_t	debug_flags;
 
-void debug_gcode_process(void){
+void debug_gcode_process(void *next_target){
 	if(! PARAMETER_SEEN(L_M) )
 		return;
 	

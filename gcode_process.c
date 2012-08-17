@@ -26,7 +26,7 @@
 *                                                                           *
 \***************************************************************************/
 
-void request_resend(void) {
+void request_resend(void *next_target) {
 	serial_writestr_P(PSTR("rs "));
 	serwrite_uint8(PARAMETER(L_N));
 	serial_writechar('\n');
@@ -44,7 +44,7 @@ uint32_t N_expected;
 
 *//*************************************************************************/
 
-void process_gcode_command() {
+void process_gcode_command(void *next_target) {
 	#ifdef	REQUIRE_LINENUMBER
 		if( 
 			((PARAMETER(L_N) >= N_expected) && (PARAMETER_SEEN(L_N))) ||
@@ -66,7 +66,7 @@ void process_gcode_command() {
 		}
 	#endif
 	
-	core_emit(EVENT_GCODE_PROCESS);
+	core_emit(EVENT_GCODE_PROCESS, next_target);
 	
 	// The GCode documentation was taken from http://reprap.org/wiki/Gcode .
 	
@@ -85,7 +85,7 @@ void process_gcode_command() {
 					uint32_t delay;
 					
 					for (delay = PARAMETER(L_P); delay > 0; delay--){
-						core_emit(EVENT_TICK);
+						core_emit(EVENT_TICK, 0);
 						delay_ms(1);
 					}
 				}
@@ -137,7 +137,7 @@ void process_gcode_command() {
 				power_off();
 				cli();
 				for (;;)
-					core_emit(EVENT_TICK);
+					core_emit(EVENT_TICK, 0);
 				break;
 
 			case 110:

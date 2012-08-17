@@ -321,7 +321,7 @@ void clock_250ms(void) {
 	call from ifclock(CLOCK_FLAG_10MS) in busy loops
 */
 void clock_10ms(void) {
-	core_emit(EVENT_TICK_10MS);
+	core_emit(EVENT_TICK_10MS, 0);
 	
 	temp_tick();
 

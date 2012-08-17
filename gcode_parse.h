@@ -60,15 +60,12 @@ typedef struct {
 /// the command being processed
 extern GCODE_COMMAND next_target;
 
-#define PARAMETER(letter)       (next_target.parameters[letter])
-#define PARAMETER_SEEN(letter)  ( ((next_target).seen & (1<<letter)) != 0 )
+#define PARAMETER(letter)       ( ((GCODE_COMMAND *) next_target)->parameters[letter])
+#define PARAMETER_SEEN(letter)  ( (((GCODE_COMMAND *)next_target)->seen & (1<<letter)) != 0 )
 
 void gcode_init(void);
 
 /// accept the next character and process it
 void gcode_parse_char(uint8_t c);
-
-// uses the global variable next_target.N
-void request_resend(void);
 
 #endif	/* _GCODE_PARSE_H */

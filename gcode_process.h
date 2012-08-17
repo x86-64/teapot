@@ -9,6 +9,8 @@ extern uint8_t tool;
 extern uint8_t next_tool;
 
 // when we have a whole line, feed it to this
-void process_gcode_command(void);
+void process_gcode_command(void *next_target);
+
+void request_resend(void *next_target);
 
 #endif	/* _GCODE_PROCESS_H */

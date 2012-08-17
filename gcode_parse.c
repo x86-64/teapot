@@ -40,7 +40,7 @@ typedef enum parser_state {
 decfloat      read_digit					__attribute__ ((__section__ (".bss")));
 
 /// this is where we store all the data for the current command before we work out what to do with it
-GCODE_COMMAND next_target		__attribute__ ((__section__ (".bss")));
+GCODE_COMMAND next_gcode		__attribute__ ((__section__ (".bss")));
 
 parser_state  gcode_parser_state       = S_PARSE_CHAR;
 uint8_t       gcode_parser_char        = MAX_LETTER;
@@ -145,7 +145,7 @@ redo:;
 					read_digit.sign = read_digit.mantissa = read_digit.exponent = 0;
 					
 					// set seen flag
-					next_target.seen |= 1 << gcode_parser_char;
+					next_gcode.seen |= 1 << gcode_parser_char;
 					break;
 				
 				// ignore spaces
@@ -156,12 +156,12 @@ redo:;
 				case T_NEWLINE:
 					// process
 					serial_writestr_P(PSTR("ok "));
-					process_gcode_command();
+					process_gcode_command(&next_gcode);
 					serial_writechar('\n');
 					
 					// reset variables
-					next_target.seen     = 0;
-					next_target.checksum = 0;
+					next_gcode.seen     = 0;
+					next_gcode.checksum = 0;
 					break; 
 				
 				default:
@@ -195,7 +195,7 @@ redo:;
 				case T_NEWLINE: // we finished
 				case T_SPACE:   
 					// since we use universal parameters table - all conversions to inch or mm goes to according modules
-					next_target.parameters[gcode_parser_char] = decfloat_to_int(&read_digit, 1);
+					next_gcode.parameters[gcode_parser_char] = decfloat_to_int(&read_digit, 1);
 					
 					gcode_parser_state = S_PARSE_CHAR;
 					gcode_parser_char  = MAX_LETTER;
@@ -225,7 +225,7 @@ redo:;
 resume:
 	
 	if(gcode_parser_char != L_CHECKSUM)
-		next_target.checksum = crc(next_target.checksum, c);
+		next_gcode.checksum = crc(next_gcode.checksum, c);
 	
 	//if (DEBUG_ECHO && (debug_flags & DEBUG_ECHO))
 	//	serial_writechar(c);

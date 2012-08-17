@@ -14,12 +14,12 @@ int core_register(core_event_type type, event_func core_event){
 	return 1;
 }
 
-void core_emit(core_event_type type){
+void core_emit(core_event_type type, void *userdata){
 	int i;
 
 	for(i=0; i<MAX_FUNCS; i++){
 		if(core_events[type][i])
-			core_events[type][i]();
+			core_events[type][i](userdata);
 	}
 }
 
