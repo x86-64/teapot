@@ -3,8 +3,6 @@
 
 #include	<stdint.h>
 
-#include	"dda.h"
-
 // wether to insist on N line numbers
 // if not defined, N's are completely ignored
 //#define	REQUIRE_LINENUMBER
