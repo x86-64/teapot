@@ -57,11 +57,9 @@ typedef struct {
   int32_t           parameters[MAX_LETTER];   ///< array with all parameters
 } GCODE_COMMAND;
 
-/// the command being processed
-extern GCODE_COMMAND next_target;
-
 #define PARAMETER(letter)       ( ((GCODE_COMMAND *) next_target)->parameters[letter])
 #define PARAMETER_SEEN(letter)  ( (((GCODE_COMMAND *)next_target)->seen & (1<<letter)) != 0 )
+#define PARAMETER_SET(gcode,letter,value) do { gcode.parameters[letter] = (int32_t)value; gcode.seen |= (1<<letter); } while(0);
 
 void gcode_init(void);
 
