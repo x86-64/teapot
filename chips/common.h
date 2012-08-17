@@ -23,7 +23,11 @@
 #include "arduino.h"
 
 #include "core.h"
+
+#ifndef FEATURE
 #include "features.h"
+#endif
+
 #include "gcode_parse.h"
 #include "gcode_process.h"
 #include "serial.h"
