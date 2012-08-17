@@ -12,7 +12,6 @@
 #include <util/delay_basic.h>
 
 #include <avr/eeprom.h>
-#include <avr/interrupt.h>
 #include <avr/io.h>
 #include <avr/pgmspace.h>
 #include <avr/version.h>
@@ -20,6 +19,7 @@
 */
 #include <avr/eeprom.h>
 #include <avr/pgmspace.h>
+#include <avr/interrupt.h>
 #include "arduino.h"
 
 #include "core.h"

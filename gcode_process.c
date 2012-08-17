@@ -1,22 +1,10 @@
-#include	"gcode_process.h"
-
 /** \file
 	\brief Work out what to do with received G-Code commands
 */
+#include	"common.h"
 
-#include	<string.h>
-#include	<avr/interrupt.h>
-
-#include	"gcode_parse.h"
-
-#include	"dda.h"
 #include	"dda_queue.h"
 #include	"delay.h"
-#include	"serial.h"
-#include	"timer.h"
-#include	"pinio.h"
-#include	"debug.h"
-#include	"common.h"
 
 /***************************************************************************\
 *                                                                           *
@@ -60,8 +48,8 @@ void process_gcode_command(void *next_target) {
 	#endif
 	
 	#ifdef	REQUIRE_CHECKSUM
-		if( ((next_target.seen & (1<<L_CHECKSUM)) != 0) || (next_target.checksum_calculated != next_target.checksum_read) ){
-			sersendf_P(PSTR("rs N%ld Expected checksum %d\n"), N_expected, next_target.checksum_calculated);
+		if( (PARAMETER_SEEN(L_CHECKSUM)) || (next_target->checksum != PARAMETER(L_CHECKSUM)) ){
+			sersendf_P(PSTR("rs N%ld Expected checksum %d\n"), N_expected, next_target->checksum);
 			//request_resend();
 		}
 	#endif
@@ -82,7 +70,7 @@ void process_gcode_command(void *next_target) {
 				queue_wait();
 				// delay
 				if (PARAMETER_SEEN(L_P)) {
-					uint32_t delay;
+					int32_t delay;
 					
 					for (delay = PARAMETER(L_P); delay > 0; delay--){
 						core_emit(EVENT_TICK, 0);
@@ -93,38 +81,6 @@ void process_gcode_command(void *next_target) {
 		}
 	}else if (PARAMETER_SEEN(L_M)) {
 		switch (PARAMETER(L_M)) {
-			case 0:
-				//? --- M0: machine stop ---
-				//?
-				//? Example: M0
-				//?
-				//? http://linuxcnc.org/handbook/RS274NGC_3/RS274NGC_33a.html#1002379
-				//? Unimplemented, especially the restart after the stop. Fall trough to M2.
-				//?
-
-			case 2:
-				//? --- M2: program end ---
-				//?
-				//? Example: M2
-				//?
-				//? http://linuxcnc.org/handbook/RS274NGC_3/RS274NGC_33a.html#1002379
-				//?
-			
-			case 191:
-				//? --- M191: Power Off ---
-				//? Undocumented.
-				//? Same as M2. RepRap obviously prefers to invent new numbers instead of looking into standards. 
-				power_off();
-				break;
-			
-			case 190:
-				//? --- M190: Power On ---
-				//? Undocumented.
-				//? This one is pointless in Teacup. Implemented to calm the RepRap gurus.
-				//?
-				power_on();
-				break;
-
 			case 112:
 				//? --- M112: Emergency Stop ---
 				//?
@@ -134,7 +90,6 @@ void process_gcode_command(void *next_target) {
 				//? It can be started again by pressing the reset button on the master microcontroller.  See also M0.
 				//?
 
-				power_off();
 				cli();
 				for (;;)
 					core_emit(EVENT_TICK, 0);
