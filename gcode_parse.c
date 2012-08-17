@@ -45,45 +45,6 @@ GCODE_COMMAND next_gcode		__attribute__ ((__section__ (".bss")));
 parser_state  gcode_parser_state       = S_PARSE_CHAR;
 uint8_t       gcode_parser_char        = MAX_LETTER;
 
-static lexer_token  gcode_lexer(uint8_t c){
-	      if(c >= 'A' && c <= 'Z'){      return T_CHAR;
-	}else if(c == '*'){                  return T_CHAR;
-	}else if(c >= '0' || c <= '9'){      return T_DIGIT;
-	}else if(c == ' ' || c == '\t'){     return T_SPACE;
-	}else if(c == '\r' || c == '\n'){    return T_NEWLINE;
-	}else if(c == '-'){                  return T_SIGN;
-	}else if(c == '.'){                  return T_DOT;
-	}else if(c == ';'){                  return T_COMMENT_SEMICOLON;
-	}else if(c == '('){                  return T_COMMENT_START;
-	}else if(c == ')'){                  return T_COMMENT_END;
-	}
-	return T_INVALID;
-}
-
-typedef enum lexer_token {
-	T_CHAR,
-	T_DIGIT,
-	T_SPACE,
-	T_NEWLINE,
-	T_SIGN,
-	T_DOT,
-	T_COMMENT_SEMICOLON,
-	T_COMMENT_START,
-	T_COMMENT_END,
-
-	T_INVALID
-} lexer_token;
-
-typedef enum parser_state {
-	S_PARSE_CHAR,
-	S_PARSE_NUMBER,
-	S_COMMENT_SEMI,
-	S_COMMENT_BRACKET,
-} parser_state;
-
-parser_state gcode_parser_state       = S_PARSE_CHAR;
-uint8_t      gcode_parser_char        = MAX_LETTER;
-
 lexer_token  gcode_lexer(uint8_t c){
 	      if(c >= 'A' && c <= 'Z'){      return T_CHAR;
 	}else if(c == '*'){                  return T_CHAR;
@@ -115,6 +76,26 @@ letters      gcode_convert_char(uint8_t c){
 		case '*': return L_CHECKSUM;
 	}
 	return MAX_LETTER;
+}
+
+uint8_t      gcode_convert_letter(letters c){
+	switch(c){
+		case L_G: return 'G';
+		case L_M: return 'M';
+		case L_X: return 'X';
+		case L_Y: return 'Y';
+		case L_Z: return 'Z';
+		case L_E: return 'E';
+		case L_F: return 'F';
+		case L_S: return 'S';
+		case L_P: return 'P';
+		case L_T: return 'T';
+		case L_N: return 'N';
+		case L_CHECKSUM: return '*';
+		case MAX_LETTER:
+			break;
+	}
+	return 0;
 }
 
 /// Character Received - add it to our command

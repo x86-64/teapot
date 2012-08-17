@@ -31,25 +31,6 @@ typedef enum letters { ///< This enum is used to reduce size of arrays which use
 	MAX_LETTER
 } letters;
 
-typedef enum letters { ///< This enum is used to reduce size of arrays which use letters as index
-	L_G,
-	L_M,
-	L_X,
-	L_Y,
-
-	L_Z,
-	L_E,
-	L_F,
-	L_S,
-	
-	L_P,
-	L_T,
-	L_N,
-	L_CHECKSUM,
-	
-	MAX_LETTER
-} letters;
-
 /// this holds all the possible data from a received command
 typedef struct {
 	uint8_t						checksum;                 ///< checksum we calculated
@@ -65,5 +46,8 @@ void gcode_init(void);
 
 /// accept the next character and process it
 void gcode_parse_char(uint8_t c);
+
+uint8_t      gcode_convert_letter(letters c);
+letters      gcode_convert_char(uint8_t c);
 
 #endif	/* _GCODE_PARSE_H */
