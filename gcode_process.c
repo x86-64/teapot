@@ -3,8 +3,6 @@
 */
 #include	"common.h"
 
-#include	"delay.h"
-
 /***************************************************************************\
 *                                                                           *
 * Request a resend of the current line - used from various places.          *
@@ -57,29 +55,7 @@ void process_gcode_command(void *next_target) {
 	
 	// The GCode documentation was taken from http://reprap.org/wiki/Gcode .
 	
-	if (PARAMETER_SEEN(L_G)) {
-		switch (PARAMETER(L_G)) {
-			case 4:
-				//? --- G4: Dwell ---
-				//?
-				//? Example: G4 P200
-				//?
-				//? In this case sit still doing nothing for 200 milliseconds.  During delays the state of the machine (for example the temperatures of its extruders) will still be preserved and controlled.
-				//?
-				
-				M400_WAIT();
-				// delay
-				if (PARAMETER_SEEN(L_P)) {
-					int32_t delay;
-					
-					for (delay = PARAMETER(L_P); delay > 0; delay--){
-						core_emit(EVENT_TICK, 0);
-						delay_ms(1);
-					}
-				}
-				break;
-		}
-	}else if (PARAMETER_SEEN(L_M)) {
+	if (PARAMETER_SEEN(L_M)) {
 		switch (PARAMETER(L_M)) {
 			case 112:
 				//? --- M112: Emergency Stop ---
