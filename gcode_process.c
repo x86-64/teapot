@@ -3,7 +3,6 @@
 */
 #include	"common.h"
 
-#include	"dda_queue.h"
 #include	"delay.h"
 
 /***************************************************************************\
@@ -67,7 +66,8 @@ void process_gcode_command(void *next_target) {
 				//?
 				//? In this case sit still doing nothing for 200 milliseconds.  During delays the state of the machine (for example the temperatures of its extruders) will still be preserved and controlled.
 				//?
-				queue_wait();
+				
+				M400_WAIT();
 				// delay
 				if (PARAMETER_SEEN(L_P)) {
 					int32_t delay;

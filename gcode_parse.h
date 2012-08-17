@@ -47,5 +47,7 @@ void gcode_parse_char(uint8_t c);
 
 uint8_t      gcode_convert_letter(letters c);
 letters      gcode_convert_char(uint8_t c);
+				
+#define M400_WAIT() do { GCODE_COMMAND wait; PARAMETER_SET(wait, L_M, 400); core_emit(EVENT_GCODE_PROCESS, &wait); } while(0);
 
 #endif	/* _GCODE_PARSE_H */

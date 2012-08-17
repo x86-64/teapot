@@ -111,6 +111,11 @@ void axis_gcode_universal(const axis_t *axis, axis_runtime_t *axis_runtime, void
 				if(axis->sticky_relative == 1)
 					axis_runtime->relative = 1;
 				break;
+			
+			case 400:
+				//? --- M400 - Wait for all operations to complete (could be same as M116 but not sure)
+				queue_wait();
+				break;
 		}
 	}
 }
