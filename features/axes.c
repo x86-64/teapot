@@ -1,57 +1,148 @@
 #include "common.h"
 
+#include "dda_queue.h"
+
 typedef struct axis_t {
-	uint8_t                letter;       ///< Letter for this axis ('X','Y','Z', etc)
-	uint32_t               feedrate_max; ///< Maximum feedrate value from this axis
-	void                  *userdata;     ///< Stepper userdata
+	uint8_t                sticky_relative   :1; ///< Ignore G90/91 requests
+	uint8_t                have_position_min :1; ///< Do we have minimal position value?
+	uint8_t                have_position_max :1; ///< Do we have minimal position value?
+	
+	uint8_t                letter;               ///< Letter for this axis (L_X, L_Y, L_Z, ...)
+	uint32_t               feedrate_search;      ///< Search feedrate for this axis
+	uint32_t               feedrate_max;         ///< Maximum feedrate value for this axis
+	 int32_t               position_min;         ///< Minimal position value (um)
+	 int32_t               position_max;         ///< Maximal position value (um)
+	void                  *userdata;             ///< Stepper userdata
 } axis_t;
 
 typedef struct axis_runtime_t {
 	uint8_t                relative :1;  ///< Use relative mode
+	uint8_t                inches   :1;  ///< Use inches (1) or mm (0)
 } axis_runtime_t;
 
-#define NUM_AXISES 3
-const axis_t          axes         [NUM_AXISES];
-      axis_runtime_t  axes_runtime [NUM_AXISES];
+#define NUM_AXES 3
+const axis_t          axes         [NUM_AXES];
+      axis_runtime_t  axes_runtime [NUM_AXES];
       
+API void axes_init(void);
 
-void axes_gcode(void){
+/// This function apply to any axis
+void axis_gcode_universal(const axis_t *axis, axis_runtime_t *axis_runtime, void *next_target){
+	if(PARAMETER_SEEN(L_G)){
+		switch(PARAMETER(L_G)){
+			case 20:
+				//? --- G20: Set Units to Inches ---
+				//?
+				//? Example: G20
+				//?
+				//? Units from now on are in inches.
+				//?
+				axis_runtime->inches = 1;
+				break;
+
+			case 21:
+				//? --- G21: Set Units to Millimeters ---
+				//?
+				//? Example: G21
+				//?
+				//? Units from now on are in millimeters.  (This is the RepRap default.)
+				//?
+				axis_runtime->inches = 0;
+				break;
+
+			case 90:
+				//? --- G90: Set to Absolute Positioning ---
+				//?
+				//? Example: G90
+				//?
+				//? All coordinates from now on are absolute relative to the origin
+				//? of the machine. This is the RepRap default.
+				//?
+				//? If you ever want to switch back and forth between relative and
+				//? absolute movement keep in mind, X, Y and Z follow the machine's
+				//? coordinate system while E doesn't change it's position in the
+				//? coordinate system on relative movements.
+				//?
+
+				// No wait_queue() needed.
+				if(axis->sticky_relative == 0)
+					axis_runtime->relative = 0;
+				break;
+
+			case 91:
+				//? --- G91: Set to Relative Positioning ---
+				//?
+				//? Example: G91
+				//?
+				//? All coordinates from now on are relative to the last position.
+				//?
+				
+				// No wait_queue() needed.
+				if(axis->sticky_relative == 0)
+					axis_runtime->relative = 1;
+				break;
+		}
+	}
+	if(PARAMETER_SEEN(L_M)){
+		switch(PARAMETER(L_M)){
+			case 82:
+				//? --- M82 - Set E codes absolute ---
+				//?
+				//? This is the default and overrides G90/G91.
+				//? M82/M83 is not documented in the RepRap wiki, behaviour
+				//? was taken from Sprinter as of March 2012.
+				//?
+				//? While E does relative movements, it doesn't change its
+				//? position in the coordinate system. See also comment on G90.
+				//?
+
+				// No wait_queue() needed.
+				if(axis->sticky_relative == 1)
+					axis_runtime->relative = 0;
+				break;
+
+			case 83:
+				//? --- M83 - Set E codes relative ---
+				//?
+				//? Counterpart to M82.
+				//?
+
+				// No wait_queue() needed.
+				if(axis->sticky_relative == 1)
+					axis_runtime->relative = 1;
+				break;
+		}
+	}
+}
+
+// This function is per-axis only
+void axis_gcode_letter(const axis_t *axis, axis_runtime_t *axis_runtime, void *next_target){
+	if(PARAMETER_SEEN(L_G)){
+		switch(PARAMETER(L_G)){
+			case 0:
+				break;
+			// TODO position_min/max
+		}
+	}
+}
+
+void axes_gcode(void *next_target){
+	uint8_t                i;
 	
+	for(i=0; i<NUM_AXES; i++){
+		axis_gcode_universal(&axes[i], &axes_runtime[i], next_target);
+		
+		if(PARAMETER_SEEN(axes[i].letter))
+			axis_gcode_letter(&axes[i], &axes_runtime[i], next_target);
+	}
 }
 
 void axes_init(void){
 	core_register(EVENT_GCODE_PROCESS, &axes_gcode);
-	// set up default feedrate
-	//if (startpoint.F == 0)
-	//	startpoint.F = next_target.target.F = SEARCH_FEEDRATE_Z;
 }
 
 /*
-	// implement axis limits
-	#ifdef	X_MIN
-		if (next_target.parameters[L_X] < X_MIN * 1000.)
-			next_target.parameters[L_X] = X_MIN * 1000.;
-	#endif
-	#ifdef	X_MAX
-		if (next_target.parameters[L_X] > X_MAX * 1000.)
-			next_target.parameters[L_X] = X_MAX * 1000.;
-	#endif
-	#ifdef	Y_MIN
-		if (next_target.parameters[L_Y] < Y_MIN * 1000.)
-			next_target.parameters[L_Y] = Y_MIN * 1000.;
-	#endif
-	#ifdef	Y_MAX
-		if (next_target.parameters[L_Y] > Y_MAX * 1000.)
-			next_target.parameters[L_Y] = Y_MAX * 1000.;
-	#endif
-	#ifdef	Z_MIN
-		if (next_target.parameters[L_Z] < Z_MIN * 1000.)
-			next_target.parameters[L_Z] = Z_MIN * 1000.;
-	#endif
-	#ifdef	Z_MAX
-		if (next_target.parameters[L_Z] > Z_MAX * 1000.)
-			next_target.parameters[L_Z] = Z_MAX * 1000.;
-	#endif
+
 	#if defined Z_MIN_PIN
 		home_z_negative();
 	#elif defined	Z_MAX_PIN
@@ -157,44 +248,6 @@ void home_z_positive() {
 			//	G3 - Arc Counter-clockwise
 			// unimplemented
 
-		case 4:
-			//? --- G4: Dwell ---
-			//?
-			//? Example: G4 P200
-			//?
-			//? In this case sit still doing nothing for 200 milliseconds.  During delays the state of the machine (for example the temperatures of its extruders) will still be preserved and controlled.
-			//?
-			queue_wait();
-			// delay
-			if ((next_target.seen & (1<<L_P)) != 0) {
-				for (;next_target.P > 0;next_target.P--) {
-					ifclock(clock_flag_10ms) {
-						clock_10ms();
-					}
-					delay_ms(1);
-				}
-			}
-			break;
-
-		case 20:
-			//? --- G20: Set Units to Inches ---
-			//?
-			//? Example: G20
-			//?
-			//? Units from now on are in inches.
-			//?
-			next_target.option_inches = 1;
-			break;
-
-		case 21:
-			//? --- G21: Set Units to Millimeters ---
-			//?
-			//? Example: G21
-			//?
-			//? Units from now on are in millimeters.  (This is the RepRap default.)
-			//?
-			next_target.option_inches = 0;
-			break;
 
 		case 30:
 			//? --- G30: Go home via point ---
@@ -250,35 +303,6 @@ void home_z_positive() {
 			}
 			break;
 
-		case 90:
-			//? --- G90: Set to Absolute Positioning ---
-			//?
-			//? Example: G90
-			//?
-			//? All coordinates from now on are absolute relative to the origin
-			//? of the machine. This is the RepRap default.
-			//?
-			//? If you ever want to switch back and forth between relative and
-			//? absolute movement keep in mind, X, Y and Z follow the machine's
-			//? coordinate system while E doesn't change it's position in the
-			//? coordinate system on relative movements.
-			//?
-
-			// No wait_queue() needed.
-			next_target.option_all_relative = 0;
-			break;
-
-		case 91:
-			//? --- G91: Set to Relative Positioning ---
-			//?
-			//? Example: G91
-			//?
-			//? All coordinates from now on are relative to the last position.
-			//?
-
-			// No wait_queue() needed.
-			next_target.option_all_relative = 1;
-			break;
 
 		case 92:
 			//? --- G92: Set Position ---
@@ -342,44 +366,10 @@ void home_z_positive() {
 			if ((next_target.seen & (1<<L_Z)) != 0)
 				home_z_positive();
 			break;
-
-			// unknown gcode: spit an error
-		default:
-			sersendf_P(PSTR("E: Bad G-code %d"), next_target.G);
-			// newline is sent from gcode_parse after we return
-			return;
 	}
-	#ifdef	DEBUG
-		if (DEBUG_POSITION && (debug_flags & DEBUG_POSITION))
-			print_queue();
-	#endif
 
 	case 'M'
 
-			case 82:
-				//? --- M82 - Set E codes absolute ---
-				//?
-				//? This is the default and overrides G90/G91.
-				//? M82/M83 is not documented in the RepRap wiki, behaviour
-				//? was taken from Sprinter as of March 2012.
-				//?
-				//? While E does relative movements, it doesn't change its
-				//? position in the coordinate system. See also comment on G90.
-				//?
-
-				// No wait_queue() needed.
-				next_target.option_e_relative = 0;
-				break;
-
-			case 83:
-				//? --- M83 - Set E codes relative ---
-				//?
-				//? Counterpart to M82.
-				//?
-
-				// No wait_queue() needed.
-				next_target.option_e_relative = 1;
-				break;
 			case 114:
 				//? --- M114: Get Current Position ---
 				//?
@@ -488,21 +478,5 @@ void home_z_positive() {
 				//?
 
 				queue_flush();
-				break;
-			case 115:
-				//? --- M115: Get Firmware Version and Capabilities ---
-				//?
-				//? Example: M115
-				//?
-				//? Request the Firmware Version and Capabilities of the current microcontroller
-				//? The details are returned to the host computer as key:value pairs separated by spaces and terminated with a linefeed.
-				//?
-				//? sample data from firmware:
-				//?  FIRMWARE_NAME:Teacup FIRMWARE_URL:http%%3A//github.com/triffid/Teacup_Firmware/ PROTOCOL_VERSION:1.0 MACHINE_TYPE:Mendel EXTRUDER_COUNT:1 TEMP_SENSOR_COUNT:1 HEATER_COUNT:1
-				//?
-
-				sersendf_P(PSTR("FIRMWARE_NAME:Teacup FIRMWARE_URL:http%%3A//github.com/triffid/Teacup_Firmware/ PROTOCOL_VERSION:1.0 MACHINE_TYPE:Mendel EXTRUDER_COUNT:%d TEMP_SENSOR_COUNT:0 HEATER_COUNT:0"), 1);
-				// FIXME number of temp sensors, number of heaters
-				// newline is sent from gcode_parse after we return
 				break;
 */
