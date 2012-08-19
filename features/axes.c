@@ -1,7 +1,5 @@
 #include "common.h"
 
-#include "dda_queue.h"
-
 typedef struct axis_t {
 	uint8_t                sticky_relative   :1; ///< Ignore G90/91 requests
 	uint8_t                have_position_min :1; ///< Do we have minimal position value?
@@ -114,7 +112,7 @@ void axis_gcode_universal(const axis_t *axis, axis_runtime_t *axis_runtime, void
 			
 			case 400:
 				//? --- M400 - Wait for all operations to complete (could be same as M116 but not sure)
-				queue_wait();
+				// FIXME queue_wait();
 				break;
 		}
 	}
@@ -147,6 +145,32 @@ void axes_init(void){
 }
 
 /*
+	uint8_t endstop_stop; ///< Stop due to endstop trigger
+	uint8_t endstop_not_done = 0; ///< Which axes haven't finished homing
+
+#if defined X_MIN_PIN || defined X_MAX_PIN
+	if (dda->endstop_check) {
+#if defined X_MIN_PIN
+		if (x_min() == dda->endstop_stop_cond)
+			dda->move->debounce_count_min++;
+		else
+			dda->move->debounce_count_min = 0;
+#endif
+
+#if defined X_MAX_PIN
+		if (x_max() == dda->endstop_stop_cond)
+			dda->move->debounce_count_max++;
+		else
+			dda->move->debounce_count_max = 0;
+#endif
+
+		endstop_stop = dda->move->debounce_count_min >= ENDSTOP_STEPS ||
+		               dda->move->debounce_count_max >= ENDSTOP_STEPS;
+		if (!endstop_stop)
+			endstop_not_done |= 0x1;
+	} else
+#endif
+		endstop_stop = 0;
 
 	#if defined Z_MIN_PIN
 		home_z_negative();
@@ -182,7 +206,7 @@ void home_z_negative() {
 		#else
 			startpoint.Z = next_target.target.Z = 0;
 		#endif
-		dda_new_startpoint();
+		dda_new_startpoint(dda);
 		z_disable();
 	#endif
 }
@@ -216,7 +240,7 @@ void home_z_positive() {
 		queue_wait();
 		// set position to MAX
 		startpoint.Z = next_target.target.Z = (int32_t)(Z_MAX * 1000.);
-		dda_new_startpoint();
+		dda_new_startpoint(dda);
 		// go to zero
 		t.Z = 0;
 		t.F = MAXIMUM_FEEDRATE_Z;
@@ -343,7 +367,7 @@ void home_z_positive() {
 				startpoint.E = next_target.target.E = 0;
 			}
 
-			dda_new_startpoint();
+			dda_new_startpoint(dda);
 			break;
 
 		case 161:
@@ -390,7 +414,7 @@ void home_z_positive() {
 					// wait for all moves to complete
 					queue_wait();
 				#endif
-				update_current_position();
+				update_current_position(dda);
 				sersendf_P(PSTR("X:%lq,Y:%lq,Z:%lq,E:%lq,F:%ld"), current_position.parameters[L_X], current_position.parameters[L_Y], current_position.parameters[L_Z], current_position.parameters[L_E], current_position.parameters[L_F]);
 				// newline is sent from gcode_parse after we return
 				break;
@@ -398,7 +422,7 @@ void home_z_positive() {
 				//? --- M250: return current position, end position, queue ---
 				//? Undocumented
 				//? This command is only available in DEBUG builds.
-				update_current_position();
+				update_current_position(dda);
 				sersendf_P(PSTR("{X:%ld,Y:%ld,Z:%ld,E:%ld,F:%lu,c:%lu}\t{X:%ld,Y:%ld,Z:%ld,E:%ld,F:%lu,c:%lu}\t"), current_position.parameters[L_X], current_position.parameters[L_Y], current_position.parameters[L_Z], current_position.parameters[L_E], current_position.parameters[L_F], movebuffer[mb_tail].c, movebuffer[mb_tail].endpoint.parameters[L_X], movebuffer[mb_tail].endpoint.parameters[L_Y], movebuffer[mb_tail].endpoint.parameters[L_Z], movebuffer[mb_tail].endpoint.parameters[L_E], movebuffer[mb_tail].endpoint.parameters[L_F],
 					#ifdef ACCELERATION_REPRAP
 						movebuffer[mb_tail].end_c

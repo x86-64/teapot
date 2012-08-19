@@ -33,4 +33,8 @@ typedef struct {
 
 int32_t decfloat_to_int(decfloat *df, uint16_t multiplicand);
 
+
+#define MIN(a,b)  ((a < b) ? a : b)
+#define MAX(a,b)  ((a < b) ? b : a)
+
 #endif

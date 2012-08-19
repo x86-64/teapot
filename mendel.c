@@ -32,13 +32,10 @@
 #include	"common.h"
 
 #include	"serial.h"
-#include	"dda_queue.h"
-#include	"dda.h"
 #include	"timer.h"
 #include	"debug.h"
 #include	"pinio.h"
 #include	"arduino.h"
-#include	"dda_queue.h"
 #include	"memory_barrier.h"
 
 /// initialise all I/O - set pins as input or output, turn off unused subsystems, etc
@@ -260,9 +257,6 @@ void init(void) {
 	// read PID settings from EEPROM
 	//heater_init();
 
-	// set up dda
-	dda_init();
-
 	// enable interrupts
 	sei();
 
@@ -298,14 +292,14 @@ void clock_250ms(void) {
 	ifclock(clock_flag_1s) {
 		if (DEBUG_POSITION && (debug_flags & DEBUG_POSITION)) {
 			// current position
-			update_current_position();
-			sersendf_P(PSTR("Pos: %lq,%lq,%lq,%lq,%lu\n"), current_position.X, current_position.Y, current_position.Z, current_position.E, current_position.F);
+			// FIXME update_current_position();
+			//sersendf_P(PSTR("Pos: %lq,%lq,%lq,%lq,%lu\n"), current_position.X, current_position.Y, current_position.Z, current_position.E, current_position.F);
 
 			// target position
-			sersendf_P(PSTR("Dst: %lq,%lq,%lq,%lq,%lu\n"), movebuffer[mb_tail].endpoint.X, movebuffer[mb_tail].endpoint.Y, movebuffer[mb_tail].endpoint.Z, movebuffer[mb_tail].endpoint.E, movebuffer[mb_tail].endpoint.F);
+			//sersendf_P(PSTR("Dst: %lq,%lq,%lq,%lq,%lu\n"), movebuffer[mb_tail].endpoint.X, movebuffer[mb_tail].endpoint.Y, movebuffer[mb_tail].endpoint.Z, movebuffer[mb_tail].endpoint.E, movebuffer[mb_tail].endpoint.F);
 
 			// Queue
-			print_queue();
+			//print_queue();
 
 			// newline
 			serial_writechar('\n');
@@ -342,7 +336,7 @@ int main (void)
 	for (;;)
 	{
 		// if queue is full, no point in reading chars- host will just have to wait
-		if ((serial_rxchars() != 0) && (queue_full() == 0)) {
+		if ((serial_rxchars() != 0)) {
 			uint8_t c = serial_popchar();
 			gcode_parse_char(c);
 		}

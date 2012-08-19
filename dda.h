@@ -2,8 +2,8 @@
 #define	_DDA_H
 
 #include	<stdint.h>
-
 #include	"common.h"
+
 
 #ifdef ACCELERATION_REPRAP
 	#ifdef ACCELERATION_RAMPING
@@ -19,60 +19,32 @@
 	\struct TARGET
 	\brief target is simply a point in space/time
 
-	X, Y, Z and E are in micrometers unless explcitely stated. F is in mm/min.
+	X in micrometers unless explcitely stated. F is in mm/min.
 */
 typedef struct {
-// TODO TODO: We should really make up a loop for all axes.
-//            Think of what happens when a sixth axis (multi colour extruder)
-//            appears?
 	int32_t						X;
-	int32_t						Y;
-	int32_t						Z;
-	int32_t						E;
+	
 	uint32_t					F;
-
-	uint8_t		e_relative				:1; ///< bool: e axis relative? Overrides all_relative
 } TARGET;
 
-/**
-	\struct MOVE_STATE
-	\brief this struct is made for tracking the current state of the movement
-
-	Parts of this struct are initialised only once per reboot, so make sure dda_step() leaves them with a value compatible to begin a new movement at the end of the movement. Other parts are filled in by dda_start().
-*/
 typedef struct {
-	// bresenham counters
-	int32_t						x_counter; ///< counter for total_steps vs this axis
-	int32_t						y_counter; ///< counter for total_steps vs this axis
-	int32_t						z_counter; ///< counter for total_steps vs this axis
-	int32_t						e_counter; ///< counter for total_steps vs this axis
-
-	// step counters
-	uint32_t					x_steps; ///< number of steps on X axis
-	uint32_t					y_steps; ///< number of steps on Y axis
-	uint32_t					z_steps; ///< number of steps on Z axis
-	uint32_t					e_steps; ///< number of steps on E axis
-
+	 int32_t               counter;                    ///< bresenham counter for total_steps on axis
+	uint32_t               steps;                      ///< number of steps on axis
+	
 	#ifdef ACCELERATION_RAMPING
-	/// counts actual steps done
-	uint32_t					step_no;
-	/// time until next step
-	uint32_t					c;
-	/// tracking variable
-	int32_t						n;
+	uint32_t               ramping_step_no;            ///< counts actual steps done
+	uint32_t               ramping_c;                  ///< time until next step
+	int32_t                ramping_n;                  ///< tracking variable
 	#endif
 	#ifdef ACCELERATION_TEMPORAL
-	uint32_t					x_time; ///< time of the last x step
-	uint32_t					y_time; ///< time of the last y step
-	uint32_t					z_time; ///< time of the last z step
-	uint32_t					e_time; ///< time of the last e step
-	uint32_t					all_time; ///< time of the last step of any axis
+	uint32_t               temporal_time;              ///< time of the last step
+	uint32_t               all_time;                   ///< time of the last step of any axis
 	#endif
-
+	
 	/// Endstop debouncing
-	uint8_t debounce_count_xmin, debounce_count_ymin, debounce_count_zmin;
-	uint8_t debounce_count_xmax, debounce_count_ymax, debounce_count_zmax;
-} MOVE_STATE;
+	uint8_t                debounce_count_min;
+	uint8_t                debounce_count_max;
+} DDA_MOVE;
 
 /**
 	\struct DDA
@@ -83,98 +55,90 @@ typedef struct {
 */
 typedef struct {
 	/// this is where we should finish
+	TARGET                                          startpoint;
+	TARGET                                          startpoint_steps;
+	TARGET                                          current_position;
 	TARGET						endpoint;
 
 	union {
 		struct {
-			// status fields
 			uint8_t						nullmove			:1; ///< bool: no axes move, maybe we wait for temperatures or change speed
 			uint8_t						live					:1; ///< bool: this DDA is running and still has steps to do
+			uint8_t						direction		:1; ///< direction flag for axis
+			
 			#ifdef ACCELERATION_REPRAP
 			uint8_t						accel					:1; ///< bool: speed changes during this move, run accel code
 			#endif
-
-			// wait for temperature to stabilise flag
-			uint8_t						waitfor_temp	:1; ///< bool: wait for temperatures to reach their set values
-
-			// directions
-			uint8_t						x_direction		:1; ///< direction flag for X axis
-			uint8_t						y_direction		:1; ///< direction flag for Y axis
-			uint8_t						z_direction		:1; ///< direction flag for Z axis
-			uint8_t						e_direction		:1; ///< direction flag for E axis
 		};
 		uint8_t							allflags;	///< used for clearing all flags
 	};
 
 	// distances
-	uint32_t					x_delta; ///< number of steps on X axis
-	uint32_t					y_delta; ///< number of steps on Y axis
-	uint32_t					z_delta; ///< number of steps on Z axis
-	uint32_t					e_delta; ///< number of steps on E axis
-
-	/// total number of steps: set to \f$\max(\Delta x, \Delta y, \Delta z, \Delta e)\f$
-	uint32_t					total_steps;
-
+	uint32_t					delta_steps; ///< number of steps on axis
 	uint32_t					c; ///< time until next step, 24.8 fixed point
 
 	#ifdef ACCELERATION_REPRAP
-	uint32_t					end_c; ///< time between 2nd last step and last step
-	int32_t						n; ///< precalculated step time offset variable. At every step we calculate \f$c = c - (2 c / n)\f$; \f$n+=4\f$. See http://www.embedded.com/columns/technicalinsights/56800129?printable=true for full description
+	uint32_t					reprap_end_c; ///< time between 2nd last step and last step
+	 int32_t					reprap_n; ///< precalculated step time offset variable. At every step we calculate \f$c = c - (2 c / n)\f$; \f$n+=4\f$. See http://www.embedded.com/columns/technicalinsights/56800129?printable=true for full description
 	#endif
 	#ifdef ACCELERATION_RAMPING
-	/// number of steps accelerating
-	uint32_t					rampup_steps;
-	/// number of last step before decelerating
-	uint32_t					rampdown_steps;
-	/// 24.8 fixed point timer value, maximum speed
-	uint32_t					c_min;
+	uint32_t					rampup_steps; ///< number of steps accelerating
+	uint32_t					rampdown_steps; ///< number of last step before decelerating
+	uint32_t					ramping_c_min; ///< 24.8 fixed point timer value, maximum speed
 	#endif
 	#ifdef ACCELERATION_TEMPORAL
-	uint32_t					x_step_interval; ///< time between steps on X axis
-	uint32_t					y_step_interval; ///< time between steps on Y axis
-	uint32_t					z_step_interval; ///< time between steps on Z axis
-	uint32_t					e_step_interval; ///< time between steps on E axis
-	uint8_t						axis_to_step;    ///< axis to be stepped on the next interrupt
+	uint32_t					temporal_step_interval; ///< time between steps on axis
 	#endif
-
-	/// Endstop homing
-	uint8_t endstop_check; ///< Do we need to check endstops? 0x1=Check X, 0x2=Check Y, 0x4=Check Z
-	uint8_t endstop_stop_cond; ///< Endstop condition on which to stop motion: 0=Stop on detrigger, 1=Stop on trigger
+	
+	DDA_MOVE                                       *move;
 } DDA;
 
-/*
-	variables
-*/
-
-/// startpoint holds the endpoint of the most recently created DDA, so we know where the next one created starts. could also be called last_endpoint
-extern TARGET startpoint;
-
-/// the same as above, counted in motor steps
-extern TARGET startpoint_steps;
-
-/// current_position holds the machine's current position. this is only updated when we step, or when G92 (set home) is received.
-extern TARGET current_position;
+typedef struct DDA_QUEUE {
+	/// movebuffer head pointer. Points to the last move in the queue.
+	/// this variable is used both in and out of interrupts, but is
+	/// only written outside of interrupts.
+	uint8_t	mb_head;
+	
+	/// movebuffer tail pointer. Points to the currently executing move
+	/// this variable is read/written both in and out of interrupts.
+	uint8_t	mb_tail;
+	
+	/// move buffer.
+	/// holds move queue
+	/// contents are read/written both in and out of interrupts, but
+	/// once writing starts in interrupts on a specific slot, the
+	/// slot will only be modified in interrupts until the slot is
+	/// is no longer live.
+	/// The size does not need to be a power of 2 anymore!
+	DDA movebuffer[MOVEBUFFER_SIZE]; ///< this is the ringbuffer that holds the current and pending moves.
+} DDA_QUEUE;
 
 /*
 	methods
 */
 
-// initialize dda structures
-void dda_init(void);
+// queue status methods
+uint8_t queue_full(DDA_QUEUE *queue);
+uint8_t queue_empty(DDA_QUEUE *queue);
 
-// distribute a new startpoint
-void dda_new_startpoint(void);
+void queue_init(DDA_QUEUE *queue);
 
-// create a DDA
-void dda_create(DDA *dda, TARGET *target);
+// print queue status
+void queue_print(DDA_QUEUE *queue);
 
-// start a created DDA (called from timer interrupt)
-void dda_start(DDA *dda)																						__attribute__ ((hot));
+// flush the queue for eg; emergency stop
+void queue_flush(DDA_QUEUE *queue);
 
-// DDA takes one step (called from timer interrupt)
-void dda_step(DDA *dda)																							__attribute__ ((hot));
+// wait for queue to empty
+void queue_wait(DDA_QUEUE *queue);
+
+// add a new target to the queue
+void queue_enqueue(DDA_QUEUE *queue, TARGET *t);
+
+// take one step
+void queue_step(DDA_QUEUE *queue);
 
 // update current_position
-void update_current_position(void);
+void update_current_position(DDA_QUEUE *dda_queue);
 
-#endif	/* _DDA_H */
+#endif	/* _DDA_QUEUE */

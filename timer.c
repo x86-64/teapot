@@ -16,10 +16,6 @@
 #include	"arduino.h"
 #include	"common.h"
 
-#ifdef	HOST
-#include	"dda_queue.h"
-#endif
-
 #define NUM_TIMERS 3
 timer_t timers[NUM_TIMERS];
 
