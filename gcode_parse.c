@@ -98,6 +98,17 @@ uint8_t      gcode_convert_letter(letters c){
 	return 0;
 }
 
+void gcode_debug_print(GCODE_COMMAND *next_target){
+	uint8_t                i;
+	
+	sersendf_P(PSTR("["));
+	for(i=0; i<MAX_LETTER; i++){
+		if(PARAMETER_SEEN(i))
+			sersendf_P(PSTR("%c%d "), gcode_convert_letter(i), PARAMETER(i));
+	}
+	sersendf_P(PSTR("]"));
+}
+
 /// Character Received - add it to our command
 /// \param c the next character to process
 void gcode_parse_char(uint8_t c){
@@ -145,6 +156,13 @@ redo:;
 				case T_NEWLINE:
 					// process
 					serial_writestr_P(PSTR("ok "));
+					
+					if (DEBUG_LEXER && (debug_flags & DEBUG_LEXER)){
+						sersendf_P(PSTR("Gcode parsed: "));
+						gcode_debug_print(&next_gcode);
+						sersendf_P(PSTR("\n"));
+					}
+					
 					process_gcode_command(&next_gcode);
 					serial_writechar('\n');
 					
