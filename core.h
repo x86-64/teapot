@@ -1,7 +1,7 @@
 #ifndef CORE_H
 #define CORE_H
 
-#define MAX_FUNCS 5
+#define MAX_FUNCS 7
 
 typedef void (*event_func)(void *userdata);
 

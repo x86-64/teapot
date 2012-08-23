@@ -1,4 +1,5 @@
-#include <core.h>
+#include "common.h"
+#include "core.h"
 
 event_func  core_events[MAX_EVENT][MAX_FUNCS];
 
@@ -11,6 +12,7 @@ int core_register(core_event_type type, event_func core_event){
 			return 0;
 		}
 	}
+	sersendf_P(PSTR("ERROR: core_register table for %d is full\n"), type);
 	return 1;
 }
 
