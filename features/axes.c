@@ -6,8 +6,8 @@ typedef struct axis_t {
 	uint8_t                have_position_max :1; ///< Do we have minimal position value?
 	
 	uint8_t                letter;               ///< Letter for this axis (L_X, L_Y, L_Z, ...)
-	uint32_t               feedrate_search;      ///< Search feedrate for this axis
-	uint32_t               feedrate_max;         ///< Maximum feedrate value for this axis
+	uint32_t               feedrate_search;      ///< Search feedrate for this axis (mm/min)
+	uint32_t               feedrate_max;         ///< Maximum feedrate value for this axis (mm/min)
 	 int32_t               position_min;         ///< Minimal position value (um)
 	 int32_t               position_max;         ///< Maximal position value (um)
 	void                  *userdata;             ///< Stepper userdata
@@ -19,10 +19,52 @@ typedef struct axis_runtime_t {
 } axis_runtime_t;
 
 #define NUM_AXES 3
-const axis_t          axes         [NUM_AXES];
+const axis_t          axes         [NUM_AXES] = {
+	{ 0, 0, 0, L_X, 50, 200, 0, 1000000, (axis_stepdir_userdata []){{ 0, 0 }} },
+	{ 0, 0, 0, L_Y, 50, 200, 0, 1000000, (axis_stepdir_userdata []){{ 0, 0 }} },
+	{ 0, 0, 0, L_Z, 50, 200, 0, 1000000, (axis_stepdir_userdata []){{ 0, 0 }} },
+};
       axis_runtime_t  axes_runtime [NUM_AXES];
       
 API void axes_init(void);
+
+void axis_debug_print(const axis_t *axis){
+	sersendf_P(PSTR(
+		"{AXIS: letter: '%c', "
+			"sticky: %d, "
+			"have_min: %d, have_max: %d, "
+			"feed_search: %lu, feed_max: %lu, "
+			"pos_min: %ld, pos_max: %ld"
+		"}"),
+		gcode_convert_letter(axis->letter),
+		axis->sticky_relative,
+		axis->have_position_min, axis->have_position_max,
+		axis->feedrate_search,   axis->feedrate_max,
+		axis->position_min,      axis->position_max
+	);
+}
+
+void axis_debug_runtime_print(const axis_t *axis, const axis_runtime_t *axis_runtime){
+	sersendf_P(PSTR(
+		"{AXIS_RUN: letter: '%c', "
+			"relative: %d, "
+			"inches: %d"
+		"}"),
+		gcode_convert_letter(axis->letter),
+		axis_runtime->relative,
+		axis_runtime->inches
+	);
+}
+
+void axes_debug_print(void){
+	uint8_t i;
+
+	for(i=0; i<NUM_AXES; i++){
+		axis_debug_print(&axes[i]);
+		axis_debug_runtime_print(&axes[i], &axes_runtime[i]);
+		sersendf_P(PSTR("\n"));
+	}
+}
 
 /// This function apply to any axis
 void axis_gcode_universal(const axis_t *axis, axis_runtime_t *axis_runtime, void *next_target){
@@ -114,6 +156,13 @@ void axis_gcode_universal(const axis_t *axis, axis_runtime_t *axis_runtime, void
 				//? --- M400 - Wait for all operations to complete (could be same as M116 but not sure)
 				// FIXME queue_wait();
 				break;
+
+			#ifdef DEBUG
+			case 401:
+				//? --- M401 - Show debug info
+				axes_debug_print();
+				break;
+			#endif
 		}
 	}
 }
