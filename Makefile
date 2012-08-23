@@ -104,7 +104,7 @@ OBJCOPY = $(ARCH)objcopy
 OPTIMIZE = -Os -ffunction-sections -finline-functions-called-once -mcall-prologues
 # OPTIMIZE = -O0
 CFLAGS = -g -Wall -Wstrict-prototypes $(OPTIMIZE) -mmcu=$(MCU_TARGET) $(DEFS) -std=gnu99 -funsigned-char -funsigned-bitfields -fpack-struct -fshort-enums -save-temps -Winline
-CFLAGS+= -I./ -I../ -I chips/ -I libs/ # for features files
+CFLAGS+= -I./ -I../ -I chips/ -I libs/ -I features/ # for features files
 LDFLAGS = -Wl,--as-needed -Wl,--gc-sections
 LIBS = -lm
 LIBDEPS =
@@ -151,7 +151,7 @@ AUTOGEN+=features.h
 features.h:
 	echo "#ifndef FEATURES_H" > features.h
 	echo "#define FEATURES_H" >> features.h
-	find -L configs/ -iname '*.h' | awk '{print "#include \"" $$0 "\""}' >> features.h
+	find -L features/ -iname '*.h' | awk '{print "#include \"" $$0 "\""}' >> features.h
 	find -L configs/ -iname '*.c' -exec grep "API" -r {} \; >> features.h
 	echo "void features_init(void);" >> features.h
 	echo "  #ifdef FEATURES_C" >> features.h
