@@ -37,6 +37,7 @@ void debug_gcode_process(void *next_target){
 			//? #define         DEBUG_PID       1
 			//? #define         DEBUG_DDA       2
 			//? #define         DEBUG_POSITION  4
+			//? #define         DEBUG_LEXER     8
 			//? </pre>
 			//?
 			//? This command is only available in DEBUG builds of Teacup.

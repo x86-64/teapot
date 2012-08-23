@@ -48,7 +48,7 @@ uint8_t       gcode_parser_char        = MAX_LETTER;
 lexer_token  gcode_lexer(uint8_t c){
 	      if(c >= 'A' && c <= 'Z'){      return T_CHAR;
 	}else if(c == '*'){                  return T_CHAR;
-	}else if(c >= '0' || c <= '9'){      return T_DIGIT;
+	}else if(c >= '0' && c <= '9'){      return T_DIGIT;
 	}else if(c == ' ' || c == '\t'){     return T_SPACE;
 	}else if(c == '\r' || c == '\n'){    return T_NEWLINE;
 	}else if(c == '-'){                  return T_SIGN;
@@ -101,14 +101,22 @@ uint8_t      gcode_convert_letter(letters c){
 /// Character Received - add it to our command
 /// \param c the next character to process
 void gcode_parse_char(uint8_t c){
+	uint8_t                orig_c;
 	lexer_token            type;
 	
 	// uppercase
+	orig_c = c;
 	if (c >= 'a' && c <= 'z')
 		c &= ~32;
 	
 	type = gcode_lexer(c);
+	
+	if (DEBUG_ECHO && (debug_flags & DEBUG_ECHO))
+		serial_writechar(orig_c);
 redo:;
+	if (DEBUG_LEXER && (debug_flags & DEBUG_LEXER))
+		sersendf_P(PSTR("Gcode parser state: %d, char: %c, type: %d\n"), gcode_parser_state, c, type);
+	
 	switch(gcode_parser_state){
 		case S_PARSE_CHAR: // wait for parameter name mode
 			switch(type){
@@ -206,10 +214,8 @@ redo:;
 resume:
 	
 	if(gcode_parser_char != L_CHECKSUM)
-		next_gcode.checksum = crc(next_gcode.checksum, c);
+		next_gcode.checksum = crc(next_gcode.checksum, orig_c);
 	
-	//if (DEBUG_ECHO && (debug_flags & DEBUG_ECHO))
-	//	serial_writechar(c);
 	return;
 
 error:
