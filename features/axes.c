@@ -1,31 +1,6 @@
 #include "common.h"
+#include "axes.h"
 
-typedef struct axis_t {
-	uint8_t                sticky_relative   :1; ///< Ignore G90/91 requests
-	uint8_t                have_position_min :1; ///< Do we have minimal position value?
-	uint8_t                have_position_max :1; ///< Do we have minimal position value?
-	
-	uint8_t                letter;               ///< Letter for this axis (L_X, L_Y, L_Z, ...)
-	uint32_t               feedrate_search;      ///< Search feedrate for this axis (mm/min)
-	uint32_t               feedrate_max;         ///< Maximum feedrate value for this axis (mm/min)
-	 int32_t               position_min;         ///< Minimal position value (um)
-	 int32_t               position_max;         ///< Maximal position value (um)
-	void                  *userdata;             ///< Stepper userdata
-} axis_t;
-
-typedef struct axis_runtime_t {
-	uint8_t                relative :1;  ///< Use relative mode
-	uint8_t                inches   :1;  ///< Use inches (1) or mm (0)
-} axis_runtime_t;
-
-#define NUM_AXES 3
-const axis_t          axes         [NUM_AXES] = {
-	{ 0, 0, 0, L_X, 50, 200, 0, 1000000, (axis_stepdir_userdata []){{ 0, 0 }} },
-	{ 0, 0, 0, L_Y, 50, 200, 0, 1000000, (axis_stepdir_userdata []){{ 0, 0 }} },
-	{ 0, 0, 0, L_Z, 50, 200, 0, 1000000, (axis_stepdir_userdata []){{ 0, 0 }} },
-};
-      axis_runtime_t  axes_runtime [NUM_AXES];
-      
 API void axes_init(void);
 
 void axis_debug_print(const axis_t *axis){
@@ -59,10 +34,10 @@ void axis_debug_runtime_print(const axis_t *axis, const axis_runtime_t *axis_run
 void axes_debug_print(void){
 	uint8_t i;
 
-	for(i=0; i<NUM_AXES; i++){
+	for(i=0; i<axes_count; i++){
 		axis_debug_print(&axes[i]);
 		axis_debug_runtime_print(&axes[i], &axes_runtime[i]);
-		sersendf_P(PSTR("\n"));
+		serial_writechar('\n');
 	}
 }
 
@@ -169,19 +144,13 @@ void axis_gcode_universal(const axis_t *axis, axis_runtime_t *axis_runtime, void
 
 // This function is per-axis only
 void axis_gcode_letter(const axis_t *axis, axis_runtime_t *axis_runtime, void *next_target){
-	if(PARAMETER_SEEN(L_G)){
-		switch(PARAMETER(L_G)){
-			case 0:
-				break;
-			// TODO position_min/max
-		}
-	}
+	axis->func_gcode(axis, axis_runtime, next_target);
 }
 
 void axes_gcode(void *next_target){
 	uint8_t                i;
 	
-	for(i=0; i<NUM_AXES; i++){
+	for(i=0; i<axes_count; i++){
 		axis_gcode_universal(&axes[i], &axes_runtime[i], next_target);
 		
 		if(PARAMETER_SEEN(axes[i].letter))
