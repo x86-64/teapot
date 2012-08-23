@@ -244,6 +244,8 @@ void io_init(void) {
 /// Startup code, run when we come out of reset
 void init(void) {
 	features_init();
+	
+	debug_init();
 
 	// set up serial
 	serial_init();
