@@ -101,12 +101,12 @@ uint8_t      gcode_convert_letter(letters c){
 void gcode_debug_print(GCODE_COMMAND *next_target){
 	uint8_t                i;
 	
-	sersendf_P(PSTR("["));
+	serial_writechar('[');
 	for(i=0; i<MAX_LETTER; i++){
 		if(PARAMETER_SEEN(i))
 			sersendf_P(PSTR("%c%d "), gcode_convert_letter(i), PARAMETER(i));
 	}
-	sersendf_P(PSTR("]"));
+	serial_writechar(']');
 }
 
 /// Character Received - add it to our command
@@ -158,9 +158,9 @@ redo:;
 					serial_writestr_P(PSTR("ok "));
 					
 					if (DEBUG_LEXER && (debug_flags & DEBUG_LEXER)){
-						sersendf_P(PSTR("Gcode parsed: "));
+						serial_writestr_P(PSTR("Gcode parsed: "));
 						gcode_debug_print(&next_gcode);
-						sersendf_P(PSTR("\n"));
+						serial_writechar('\n');
 					}
 					
 					process_gcode_command(&next_gcode);
