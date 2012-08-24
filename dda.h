@@ -55,10 +55,8 @@ typedef struct {
 */
 typedef struct {
 	/// this is where we should finish
-	TARGET                                          startpoint;
-	TARGET                                          startpoint_steps;
-	TARGET                                          current_position;
-	TARGET						endpoint;
+	TARGET                                          position_start;
+	TARGET						position_target;
 
 	union {
 		struct {
@@ -74,7 +72,8 @@ typedef struct {
 	};
 
 	// distances
-	uint32_t					delta_steps; ///< number of steps on axis
+	uint32_t					delta_um; ///< number of um on axis to do
+	uint32_t					delta_steps; ///< number of steps on axis to do
 	uint32_t					c; ///< time until next step, 24.8 fixed point
 
 	#ifdef ACCELERATION_REPRAP
