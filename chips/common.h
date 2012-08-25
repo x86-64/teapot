@@ -20,17 +20,21 @@
 #include <avr/eeprom.h>
 #include <avr/pgmspace.h>
 #include <avr/interrupt.h>
+
+#include "config.h"
+
 #include "arduino.h"
 
 #include "core.h"
-
-#ifndef FEATURE
-#include "features.h"
-#endif
+#include "dda.h"
 
 #include "gcode_parse.h"
 #include "gcode_process.h"
 #include "serial.h"
 
-#include "config.h"
 #include "utils.h"
+
+#ifndef FEATURE
+#include "features.h"
+#endif
+
