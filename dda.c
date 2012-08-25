@@ -22,12 +22,12 @@
 
 //#include "graycode.c"
 
-/*! Distribute a new dda->position_start to DDA's internal structures without any movement.
+/*! Distribute a new dda->position_start to dda's internal structures without any movement.
 
 	This is needed for example after homing or a G92. The new location must be in dda->position_start already.
 */
 
-void dda_create_acceleration_none(DDA *dda){ // {{{
+void dda_create_acceleration_none(dda_t *dda){ // {{{
 	uint32_t	       target_st;
 	uint32_t               start_st;
 	
@@ -76,20 +76,20 @@ void dda_create_acceleration_none(DDA *dda){ // {{{
 
 	One problem undoubtly arising is, steps should sometimes be done at {almost,exactly} the same time. We trust the timer to deal properly with very short or even zero periods. If a step can't be done in time, the timer shall do the step as soon as possible and compensate for the delay later. In turn we promise here to send a maximum of four such short-delays consecutively and to give sufficient time on average.
 */
-void dda_create_acceleration_temporal(DDA *dda){ // {{{
+void dda_create_acceleration_temporal(dda_t *dda){ // {{{
 	// bracket part of this equation in an attempt to avoid overflow: 60 * 16MHz * 5mm is >32 bits
 	uint32_t move_duration = dda->delta_um * ((60 * F_CPU) / (dda->position_target.F * 1000UL));
 	
 	dda->c = (move_duration / dda->delta_steps) << 8;
 } // }}}
 
-void dda_step_acceleration_temporal(DDA *dda){ // {{{
+void dda_step_acceleration_temporal(dda_t *dda){ // {{{
 	// do nothing, dda->c is okay
 } // }}}
 #endif
 
 #ifdef ACCELERATION_RAMPING
-void dda_create_acceleration_ramping(DDA *dda){ // {{{
+void dda_create_acceleration_ramping(dda_t *dda){ // {{{
 	
 	dda->move->ramping_n = 1;
 	dda->move->ramping_c = ((uint32_t)((double)F_CPU / sqrt((double)(STEPS_PER_M_X * ACCELERATION / 1000.)))) << 8;
@@ -125,7 +125,7 @@ void dda_create_acceleration_ramping(DDA *dda){ // {{{
 	dda->rampdown_steps = dda->delta_steps - dda->rampup_steps;
 } // }}}
 		
-void dda_step_acceleration_ramping(DDA *dda){ // {{{
+void dda_step_acceleration_ramping(dda_t *dda){ // {{{
 	// - algorithm courtesy of http://www.embedded.com/columns/technicalinsights/56800129?printable=true
 	// - precalculate ramp lengths instead of counting them, see AVR446 tech note
 	uint8_t recalc_speed;
@@ -179,7 +179,7 @@ void dda_step_acceleration_ramping(DDA *dda){ // {{{
 #endif
 
 #ifdef ACCELERATION_REPRAP
-void dda_create_acceleration_reprap(DDA *dda){ // {{{
+void dda_create_acceleration_reprap(dda_t *dda){ // {{{
 	// pre-calculate move speed in millimeter microseconds per step minute for less math in interrupt context
 	// mm (distance) * 60000000 us/min / step (delta) = mm.us per step.min
 	//   note: um (distance) * 60000 == mm * 60000000
@@ -241,7 +241,7 @@ void dda_create_acceleration_reprap(DDA *dda){ // {{{
 		}
 
 		if (DEBUG_DDA && (debug_flags & DEBUG_DDA))
-			sersendf_P(PSTR("\n{DDA:CA end_c:%lu, n:%ld, md:%lu, ssq:%lu, esq:%lu, dsq:%lu, msbssq:%u, msbtot:%u}\n"), dda->reprap_end_c >> 8, dda->reprap_n, move_duration, ssq, esq, dsq, msb_ssq, msb_tot);
+			sersendf_P(PSTR("\n{dda:CA end_c:%lu, n:%ld, md:%lu, ssq:%lu, esq:%lu, dsq:%lu, msbssq:%u, msbtot:%u}\n"), dda->reprap_end_c >> 8, dda->reprap_n, move_duration, ssq, esq, dsq, msb_ssq, msb_tot);
 
 		dda->accel = 1;
 	}
@@ -249,7 +249,7 @@ void dda_create_acceleration_reprap(DDA *dda){ // {{{
 		dda->accel = 0;
 } // }}}
 
-void dda_step_acceleration_reprap(DDA *dda){ // {{{
+void dda_step_acceleration_reprap(dda_t *dda){ // {{{
 	// linear acceleration magic, courtesy of http://www.embedded.com/columns/technicalinsights/56800129?printable=true
 	if (dda->accel) {
 		if ((dda->c > dda->reprap_end_c) && (dda->reprap_n > 0)) {
@@ -280,7 +280,7 @@ void dda_step_acceleration_reprap(DDA *dda){ // {{{
 
 
 /*! CREATE a dda given dda->position_current and a target, save to passed location so we can write directly into the queue
-	\param *dda pointer to a dda_queue entry to overwrite
+	\param *dda pointer to a dda_queue_t entry to overwrite
 	\param *target the target position of this move
 
 	\ref dda->position_start the beginning position of this move
@@ -291,7 +291,7 @@ void dda_step_acceleration_reprap(DDA *dda){ // {{{
 
 	This algorithm is probably the main limiting factor to print speed in terms of firmware limitations
 */
-uint8_t dda_create(DDA *dda, TARGET *target) {
+uint8_t dda_create(dda_t *dda, dda_target_t *target) {
 	if(target->X == dda->position_start.X)
 		return 1; // ERR, nothing to move
 	
@@ -318,9 +318,9 @@ uint8_t dda_create(DDA *dda, TARGET *target) {
 	return 0;
 }
 
-/*! DDA step routine, caltulate order to stepper and next time to call
+/*! dda step routine, caltulate order to stepper and next time to call
  */
-void dda_step(DDA *dda, dda_order *order) {
+void dda_step(dda_t *dda, dda_order_t *order) {
 	switch(dda->status){
 		case DDA_EMPTY:
 		case DDA_FINISHED:
@@ -373,11 +373,11 @@ void dda_step(DDA *dda, dda_order *order) {
 
 /// DEBUG - print queue.
 /// Qt/hs format, t is tail, h is head, s is F/full, E/empty or neither
-void queue_debug_print(DDA_QUEUE *queue) {
+void queue_debug_print(dda_queue_t *queue) {
 	sersendf_P(PSTR("Q%d/%d%c"), queue->mb_tail, queue->mb_head, (queue_full(queue)?'F':(queue_empty(queue)?'E':' ')));
 }
 
-void queue_init(DDA_QUEUE *queue){
+void queue_init(dda_queue_t *queue){
 	uint8_t i;
 	
 	queue->mb_head = 0;
@@ -390,7 +390,7 @@ void queue_init(DDA_QUEUE *queue){
 }
 
 /// check if the queue is completely full
-uint8_t queue_full(DDA_QUEUE *queue) {
+uint8_t queue_full(dda_queue_t *queue) {
 	MEMORY_BARRIER();
 	if (queue->mb_tail > queue->mb_head) {
 		return ((queue->mb_tail - queue->mb_head - 1) == 0) ? 255 : 0;
@@ -400,7 +400,7 @@ uint8_t queue_full(DDA_QUEUE *queue) {
 }
 
 /// check if the queue is completely empty
-uint8_t queue_empty(DDA_QUEUE *queue) {
+uint8_t queue_empty(dda_queue_t *queue) {
 	uint8_t save_reg = SREG;
 	cli();
 	
@@ -412,7 +412,7 @@ uint8_t queue_empty(DDA_QUEUE *queue) {
 	return result;
 }
 
-void queue_next_item(DDA_QUEUE *queue){
+void queue_next_item(dda_queue_t *queue){
 	uint8_t t = queue->mb_tail + 1;
 	t &= (MOVEBUFFER_SIZE - 1);
 	queue->mb_tail = t;
@@ -420,7 +420,7 @@ void queue_next_item(DDA_QUEUE *queue){
 	//return &queue->movebuffer[t];
 }
 
-void queue_push_item(DDA_QUEUE *queue, DDA *dda){
+void queue_push_item(dda_queue_t *queue, dda_t *dda){
 	// don't call this function when the queue is full, but just in case, wait for a move to complete and free up the space for the passed target
 	while (queue_full(queue))
 		delay(WAITING_DELAY);
@@ -437,7 +437,7 @@ void queue_push_item(DDA_QUEUE *queue, DDA *dda){
 	queue->mb_head = h;
 }
 
-DDA *queue_current_item(DDA_QUEUE *queue){
+dda_t *queue_current_item(dda_queue_t *queue){
 	return &queue->movebuffer[queue->mb_tail];
 }
 
@@ -446,21 +446,21 @@ DDA *queue_current_item(DDA_QUEUE *queue){
 // It calls a few other functions, though.
 // -------------------------------------------------------
 /// Take a step or go to the next move.
-void queue_step(DDA_QUEUE *queue, dda_order *order) {
-	DDA* current_movebuffer = queue_current_item(queue);
+void queue_step(dda_queue_t *queue, dda_order_t *order) {
+	dda_t* dda_curr = queue_current_item(queue);
 	
 	// initialize order to empty value
 	order->c         = 0;
 	order->step      = 0;
 	order->direction = 0;
 	
-	switch(current_movebuffer->status){
+	switch(dda_curr->status){
 		case DDA_EMPTY: // nothing to do
 			break;
 		
 		case DDA_READY:  // do our steps
 		case DDA_RUNNING:
-			dda_step(current_movebuffer, order);
+			dda_step(dda_curr, order);
 			break;
 			
 		case DDA_FINISHED: // goto next queued move
@@ -475,12 +475,12 @@ void queue_step(DDA_QUEUE *queue, dda_order *order) {
 /// add a move to the movebuffer
 /// \note this function waits for space to be available if necessary, check queue_full() first if waiting is a problem
 /// This is the only function that modifies queue->mb_head and it always called from outside an interrupt.
-void queue_enqueue(DDA_QUEUE *queue, TARGET *t) {
-	DDA  new_movebuffer;
+void queue_enqueue(dda_queue_t *queue, dda_target_t *t) {
+	dda_t dda_new;
 	
-	if( dda_create(&new_movebuffer, t) != 0) // null move
+	if( dda_create(&dda_new, t) != 0) // null move
 		return;
 	
-	queue_push_item(queue, &new_movebuffer);
+	queue_push_item(queue, &dda_new);
 }
 

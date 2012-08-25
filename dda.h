@@ -23,7 +23,7 @@ typedef enum dda_status {
 } dda_status;
 
 /**
-	\struct TARGET
+	\struct dda_target_t
 	\brief target is simply a point in space/time
 
 	X in micrometers unless explcitely stated. F is in mm/min.
@@ -32,9 +32,9 @@ typedef struct {
 	int32_t						X;
 	
 	uint32_t					F;
-} TARGET;
+} dda_target_t;
 
-typedef struct {
+typedef struct dda_move_t {
 	uint32_t               steps;                      ///< number of steps on axis
 	
 	#ifdef ACCELERATION_RAMPING
@@ -42,21 +42,21 @@ typedef struct {
 	uint32_t               ramping_c;                  ///< time until next step
 	int32_t                ramping_n;                  ///< tracking variable
 	#endif
-} DDA_MOVE;
+} dda_move_t;
 
 /**
-	\struct DDA
+	\struct dda
 	\brief this is a digital differential analyser data struct
 
 	This struct holds all the details of an individual multi-axis move, including pre-calculated acceleration data.
 	This struct is filled in by dda_create(), called from enqueue(), called mostly from gcode_process() and from a few other places too (eg \file homing.c)
 */
-typedef struct {
+typedef struct dda_t {
 	dda_status                                      status;
 	
 	/// this is where we should finish
-	TARGET                                          position_start;
-	TARGET						position_target;
+	dda_target_t                                    position_start;
+	dda_target_t                                    position_target;
 
 	union {
 		struct {
@@ -84,10 +84,10 @@ typedef struct {
 	uint32_t					ramping_c_min; ///< 24.8 fixed point timer value, maximum speed
 	#endif
 	
-	DDA_MOVE                                       *move;
-} DDA;
+	dda_move_t                                     *move;
+} dda_t;
 
-typedef struct DDA_QUEUE {
+typedef struct dda_queue_t {
 	/// movebuffer head pointer. Points to the last move in the queue.
 	/// this variable is used both in and out of interrupts, but is
 	/// only written outside of interrupts.
@@ -104,34 +104,34 @@ typedef struct DDA_QUEUE {
 	/// slot will only be modified in interrupts until the slot is
 	/// is no longer live.
 	/// The size does not need to be a power of 2 anymore!
-	DDA movebuffer[MOVEBUFFER_SIZE]; ///< this is the ringbuffer that holds the current and pending moves.
-} DDA_QUEUE;
+	dda_t movebuffer[MOVEBUFFER_SIZE]; ///< this is the ringbuffer that holds the current and pending moves.
+} dda_queue_t;
 
-typedef struct dda_order {
+typedef struct dda_order_t {
 	uint8_t                callme    :1;  ///< make a call in given time
 	uint8_t                step      :1;  ///< make a step
 	
 	uint32_t               c;             ///< time until next step
 	uint8_t                direction :1;  ///< direction to step
-} dda_order;
+} dda_order_t;
 
 /*
 	methods
 */
 
 // queue status methods
-uint8_t queue_full(DDA_QUEUE *queue);
-uint8_t queue_empty(DDA_QUEUE *queue);
+uint8_t queue_full(dda_queue_t *queue);
+uint8_t queue_empty(dda_queue_t *queue);
 
-void queue_init(DDA_QUEUE *queue);
+void queue_init(dda_queue_t *queue);
 
 // print queue status
-void queue_debug_print(DDA_QUEUE *queue);
+void queue_debug_print(dda_queue_t *queue);
 
 // add a new target to the queue
-void queue_enqueue(DDA_QUEUE *queue, TARGET *t);
+void queue_enqueue(dda_queue_t *queue, dda_target_t *t);
 
 // take one step
-void queue_step(DDA_QUEUE *queue, dda_order *order);
+void queue_step(dda_queue_t *queue, dda_order_t *order);
 
-#endif	/* _DDA_QUEUE */
+#endif	/* _dda_queue_t */
