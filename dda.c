@@ -373,11 +373,11 @@ void dda_step(dda_t *dda, dda_order_t *order) {
 
 /// DEBUG - print queue.
 /// Qt/hs format, t is tail, h is head, s is F/full, E/empty or neither
-void queue_debug_print(dda_queue_t *queue) {
-	sersendf_P(PSTR("Q%d/%d%c"), queue->mb_tail, queue->mb_head, (queue_full(queue)?'F':(queue_empty(queue)?'E':' ')));
+void dda_queue_debug_print(dda_queue_t *queue) {
+	sersendf_P(PSTR("Q%d/%d%c"), queue->mb_tail, queue->mb_head, (dda_queue_full(queue)?'F':(dda_queue_empty(queue)?'E':' ')));
 }
 
-void queue_init(dda_queue_t *queue){
+void dda_queue_init(dda_queue_t *queue){
 	uint8_t i;
 	
 	queue->mb_head = 0;
@@ -390,7 +390,7 @@ void queue_init(dda_queue_t *queue){
 }
 
 /// check if the queue is completely full
-uint8_t queue_full(dda_queue_t *queue) {
+uint8_t dda_queue_full(dda_queue_t *queue) {
 	MEMORY_BARRIER();
 	if (queue->mb_tail > queue->mb_head) {
 		return ((queue->mb_tail - queue->mb_head - 1) == 0) ? 255 : 0;
@@ -400,7 +400,7 @@ uint8_t queue_full(dda_queue_t *queue) {
 }
 
 /// check if the queue is completely empty
-uint8_t queue_empty(dda_queue_t *queue) {
+uint8_t dda_queue_empty(dda_queue_t *queue) {
 	uint8_t save_reg = SREG;
 	cli();
 	
@@ -412,8 +412,8 @@ uint8_t queue_empty(dda_queue_t *queue) {
 	return result;
 }
 
-void queue_next_item(dda_queue_t *queue){
-	while ((queue_empty(queue) == 0) && (queue->movebuffer[queue->mb_tail].status == DDA_FINISHED)) {
+void dda_queue_next_item(dda_queue_t *queue){
+	while ((dda_queue_empty(queue) == 0) && (queue->movebuffer[queue->mb_tail].status == DDA_FINISHED)) {
 		// next item
 		
 		uint8_t t = queue->mb_tail + 1;
@@ -423,9 +423,9 @@ void queue_next_item(dda_queue_t *queue){
 	//return &queue->movebuffer[t];
 }
 
-void queue_push_item(dda_queue_t *queue, dda_t *dda){
+void dda_queue_push_item(dda_queue_t *queue, dda_t *dda){
 	// don't call this function when the queue is full, but just in case, wait for a move to complete and free up the space for the passed target
-	while (queue_full(queue))
+	while (dda_queue_full(queue))
 		delay(WAITING_DELAY);
 	
 	uint8_t h = queue->mb_head + 1;
@@ -440,7 +440,7 @@ void queue_push_item(dda_queue_t *queue, dda_t *dda){
 	queue->mb_head = h;
 }
 
-dda_t *queue_current_item(dda_queue_t *queue){
+dda_t *dda_queue_current_item(dda_queue_t *queue){
 	return &queue->movebuffer[queue->mb_tail];
 }
 
@@ -449,8 +449,8 @@ dda_t *queue_current_item(dda_queue_t *queue){
 // It calls a few other functions, though.
 // -------------------------------------------------------
 /// Take a step or go to the next move.
-void queue_step(dda_queue_t *queue, dda_order_t *order) {
-	dda_t* dda_curr = queue_current_item(queue);
+void dda_queue_step(dda_queue_t *queue, dda_order_t *order) {
+	dda_t* dda_curr = dda_queue_current_item(queue);
 	
 	// initialize order to empty value
 	order->c         = 0;
@@ -467,20 +467,20 @@ void queue_step(dda_queue_t *queue, dda_order_t *order) {
 			break;
 			
 		case DDA_FINISHED: // goto next queued move
-			queue_next_item(queue);
+			dda_queue_next_item(queue);
 			break;
 	}
 }
 
 /// add a move to the movebuffer
-/// \note this function waits for space to be available if necessary, check queue_full() first if waiting is a problem
+/// \note this function waits for space to be available if necessary, check dda_queue_full() first if waiting is a problem
 /// This is the only function that modifies queue->mb_head and it always called from outside an interrupt.
-void queue_enqueue(dda_queue_t *queue, dda_target_t *t) {
+void dda_queue_enqueue(dda_queue_t *queue, dda_target_t *t) {
 	dda_t dda_new;
 	
 	if( dda_create(&dda_new, t) != 0) // null move
 		return;
 	
-	queue_push_item(queue, &dda_new);
+	dda_queue_push_item(queue, &dda_new);
 }
 

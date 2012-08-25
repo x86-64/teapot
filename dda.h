@@ -120,18 +120,18 @@ typedef struct dda_order_t {
 */
 
 // queue status methods
-uint8_t queue_full(dda_queue_t *queue);
-uint8_t queue_empty(dda_queue_t *queue);
+uint8_t dda_queue_full(dda_queue_t *queue);
+uint8_t dda_queue_empty(dda_queue_t *queue);
 
-void queue_init(dda_queue_t *queue);
+void dda_queue_init(dda_queue_t *queue);
 
 // print queue status
-void queue_debug_print(dda_queue_t *queue);
+void dda_queue_debug_print(dda_queue_t *queue);
 
 // add a new target to the queue
-void queue_enqueue(dda_queue_t *queue, dda_target_t *t);
+void dda_queue_enqueue(dda_queue_t *queue, dda_target_t *t);
 
 // take one step
-void queue_step(dda_queue_t *queue, dda_order_t *order);
+void dda_queue_step(dda_queue_t *queue, dda_order_t *order);
 
 #endif	/* _dda_queue_t */
