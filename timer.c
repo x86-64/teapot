@@ -299,19 +299,23 @@ void timer_charge(uint8_t id, uint32_t delay){
 /* 
  * usage example
  *
+
+// try to not used delays inside timer code
+
+uint8_t timer1_called = 0;
+uint8_t timer2_called = 0;
+uint8_t timer3_called = 0;
+
 void mytimer1_callback(uint8_t id, void *userdata){
-	PORTB |= (1<<DDB1); _delay_us(500); PORTB &= ~(1<<DDB1);
-	
+	timer1_called = 1;
 	timer_enable(id);
 }
 void mytimer2_callback(uint8_t id, void *userdata){
-	PORTB |= (1<<DDB2); _delay_us(500); PORTB &= ~(1<<DDB2);
-	
+	timer2_called = 1;
 	timer_enable(id);
 }
 void mytimer3_callback(uint8_t id, void *userdata){
-	PORTB |= (1<<DDB3); _delay_us(500); PORTB &= ~(1<<DDB3);
-	
+	timer3_called = 1;
 	timer_enable(id);
 }
 
@@ -328,6 +332,26 @@ int main(void){
 	timer_charge(1, 25 MS);
 	timer_charge(2, 14 MS);
 	sei();
-	while(1);
+	while(1){
+		if(timer1_called == 1){
+			PORTB |= (1<<DDB1);
+			_delay_us(500);
+			PORTB &= ~(1<<DDB1);
+			timer1_called = 0;
+		}
+		if(timer2_called == 1){
+			PORTB |= (1<<DDB2);
+			_delay_us(500);
+			PORTB &= ~(1<<DDB2);
+			timer2_called = 0;
+		}
+		if(timer3_called == 1){
+			PORTB |= (1<<DDB2);
+			_delay_us(500);
+			PORTB &= ~(1<<DDB2);
+			timer3_called = 0;
+		}
+		delay(10);
+	}
 }
 */
