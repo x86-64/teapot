@@ -4,6 +4,7 @@
 typedef struct axis_t         axis_t;
 typedef struct axis_runtime_t axis_runtime_t;
 
+typedef void (*func_axis_init)(const axis_t *axis, axis_runtime_t *axis_runtime);
 typedef void (*func_axis_gcode)(const axis_t *axis, axis_runtime_t *axis_runtime, void *next_target);
 
 typedef struct axis_t {
@@ -18,6 +19,7 @@ typedef struct axis_t {
 	 int32_t               position_max;         ///< Maximal position value (um)
 	const void            *userdata;             ///< Stepper userdata
 	
+	func_axis_init         func_init;            ///< Function to call on start
 	func_axis_gcode        func_gcode;           ///< Function to handle gcodes
 } axis_t;
 
