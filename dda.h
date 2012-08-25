@@ -108,9 +108,11 @@ typedef struct DDA_QUEUE {
 } DDA_QUEUE;
 
 typedef struct dda_order {
+	uint8_t                callme    :1;  ///< make a call in given time
+	uint8_t                step      :1;  ///< make a step
+	
 	uint32_t               c;             ///< time until next step
 	uint8_t                direction :1;  ///< direction to step
-	uint8_t                step      :1;  ///< make step or not
 } dda_order;
 
 /*
@@ -130,6 +132,6 @@ void queue_debug_print(DDA_QUEUE *queue);
 void queue_enqueue(DDA_QUEUE *queue, TARGET *t);
 
 // take one step
-void queue_step(DDA_QUEUE *queue);
+void queue_step(DDA_QUEUE *queue, dda_order *order);
 
 #endif	/* _DDA_QUEUE */

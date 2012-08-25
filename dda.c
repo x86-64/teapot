@@ -320,7 +320,7 @@ uint8_t dda_create(DDA *dda, TARGET *target) {
 
 /*! DDA step routine, caltulate order to stepper and next time to call
  */
-void dda_step(DDA *dda) {
+void dda_step(DDA *dda, dda_order *order) {
 	switch(dda->status){
 		case DDA_EMPTY:
 		case DDA_FINISHED:
@@ -330,12 +330,14 @@ void dda_step(DDA *dda) {
 			#ifdef ACCELERATION_RAMPING
 				dda->move->ramping_step_no = 0;
 			#endif
+			
 			dda->status = DDA_RUNNING;
+			
+			order->callme    = 1;   // ask for call
+			order->c         = 0;   // as soon as you can
 			break;
 			
 		case DDA_RUNNING:
-			x_step();
-			//x_direction(dda->direction);
 			dda->move->steps--;
 			
 			#if STEP_INTERRUPT_INTERRUPTIBLE
@@ -359,6 +361,11 @@ void dda_step(DDA *dda) {
 			if (dda->move->steps == 0)
 				dda->status = DDA_FINISHED;
 			
+			order->callme    = 1;                // ask for call
+			order->c         = dda->c;           // next time to call
+			
+			order->step      = 1;                // ask for step
+			order->direction = dda->direction;   // in this direction
 			break;
 	}
 }
@@ -439,8 +446,13 @@ DDA *queue_current_item(DDA_QUEUE *queue){
 // It calls a few other functions, though.
 // -------------------------------------------------------
 /// Take a step or go to the next move.
-void queue_step(DDA_QUEUE *queue) {
+void queue_step(DDA_QUEUE *queue, dda_order *order) {
 	DDA* current_movebuffer = queue_current_item(queue);
+	
+	// initialize order to empty value
+	order->c         = 0;
+	order->step      = 0;
+	order->direction = 0;
 	
 	switch(current_movebuffer->status){
 		case DDA_EMPTY: // nothing to do
@@ -448,7 +460,7 @@ void queue_step(DDA_QUEUE *queue) {
 		
 		case DDA_READY:  // do our steps
 		case DDA_RUNNING:
-			dda_step(current_movebuffer);
+			dda_step(current_movebuffer, order);
 			break;
 			
 		case DDA_FINISHED: // goto next queued move
