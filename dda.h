@@ -1,16 +1,6 @@
 #ifndef	_DDA_H
 #define	_DDA_H
 
-#include	<stdint.h>
-#include	"common.h"
-
-
-#ifdef ACCELERATION_REPRAP
-	#ifdef ACCELERATION_RAMPING
-		#error Cant use ACCELERATION_REPRAP and ACCELERATION_RAMPING together.
-	#endif
-#endif
-
 /*
 	types
 */
@@ -85,7 +75,7 @@ typedef struct dda_t {
 	#endif
 	
 	dda_move_t                                     *move;
-} dda_t;
+} dda_t; // 354 bytes for 8 steps-ahead queue
 
 typedef struct dda_queue_t {
 	/// movebuffer head pointer. Points to the last move in the queue.
