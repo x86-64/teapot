@@ -318,98 +318,69 @@ uint8_t dda_create(DDA *dda, TARGET *target) {
 	return 0;
 }
 
-/*! Start a prepared DDA
-	\param *dda pointer to entry in dda_queue to start
-
-	This function actually begins the move described by the passed DDA entry.
-
-	We set direction and enable outputs, and set the timer for the first step from the precalculated value.
-
-	We also mark this DDA as running, so other parts of the firmware know that something is happening
-
-	Called both inside and outside of interrupts.
-*/
-void dda_start(DDA *dda) {
-	// initialise state variable
-	dda->move->counter = -(dda->delta_steps >> 1);
-	dda->move->steps   = dda->delta_steps;
-	
-	#ifdef ACCELERATION_RAMPING
-		dda->move->ramping_step_no = 0;
-	#endif
-	#ifdef ACCELERATION_TEMPORAL
-		dda->move->temporal_time = 0UL;
-	#endif
-	
-	// ensure this dda starts
-	dda->live = 1;
-	
-	// set timeout for first step
-	#ifdef ACCELERATION_RAMPING
-	if (dda->ramping_c_min > dda->move->ramping_c) // can be true when look-ahead removed all deceleration steps
-		timer_charge(0, dda->ramping_c_min >> 8);
-	else
-		timer_charge(0, dda->move->ramping_c >> 8);
-	#else
-		timer_charge(0, dda->c >> 8);
-	#endif
-	// else just a speed change, keep dda->live = 0
-}
-
-/*! STEP
-	\param *dda the current move
-
-	This is called from our timer interrupt every time a step needs to occur. Keep it as simple as possible!
-	We first work out which axes need to step, and generate step pulses for them
-	Then we re-enable global interrupts so serial data reception and other important things can occur while we do some math.
-	Next, we work out how long until our next step using the selected acceleration algorithm and set the timer.
-	Then we decide if this was the last step for this move, and if so mark this dda as dead so next timer interrupt we can start a new one.
-	Finally we de-assert any asserted step pins.
-*/
+/*! DDA step routine, caltulate order to stepper and next time to call
+ */
 void dda_step(DDA *dda) {
-
-#if ! defined ACCELERATION_TEMPORAL
-	if ((dda->move->steps)) {
-		dda->move->counter -= dda->delta_steps;
-		if (dda->move->counter < 0) {
+	switch(dda->status){
+		case DDA_EMPTY:
+		case DDA_FINISHED:
+			break;
+		
+		case DDA_READY:
+			#ifdef ACCELERATION_RAMPING
+				dda->move->ramping_step_no = 0;
+			#endif
+			dda->status = DDA_RUNNING;
+			break;
+			
+		case DDA_RUNNING:
 			x_step();
 			//x_direction(dda->direction);
 			dda->move->steps--;
-			dda->move->counter += dda->delta_steps;
-		}
-	}
-#else	// ACCELERATION_TEMPORAL
-	x_step();
-	//x_direction(dda->direction);
-	dda->move->steps--;
-#endif
-	
-	#if STEP_INTERRUPT_INTERRUPTIBLE
-		// Since we have sent steps to all the motors that will be stepping
-		// and the rest of this function isn't so time critical, this interrupt
-		// can now be interruptible by other interrupts.
-		// The step interrupt is disabled before entering dda_step() to ensure
-		// that we don't step again while computing the below.
-		sei();
-	#endif
-	
-	#if defined ACCELERATION_REPRAP
-		dda_step_acceleration_reprap(dda);
-	#elif defined ACCELERATION_RAMPING
-		dda_step_acceleration_ramping(dda);
-	#elif defined ACCELERATION_TEMPORAL
-		dda_step_acceleration_temporal(dda);
-	#endif
-	
-	// If there are no steps left, we have finished.
-	if (dda->move->steps == 0) {
-		dda->live = 0;
+			
+			#if STEP_INTERRUPT_INTERRUPTIBLE
+				// Since we have sent steps to all the motors that will be stepping
+				// and the rest of this function isn't so time critical, this interrupt
+				// can now be interruptible by other interrupts.
+				// The step interrupt is disabled before entering dda_step() to ensure
+				// that we don't step again while computing the below.
+				sei();
+			#endif
+			
+			#if defined ACCELERATION_REPRAP
+				dda_step_acceleration_reprap(dda);
+			#elif defined ACCELERATION_RAMPING
+				dda_step_acceleration_ramping(dda);
+			#elif defined ACCELERATION_TEMPORAL
+				dda_step_acceleration_temporal(dda);
+			#endif
+			
+			// If there are no steps left, we have finished.
+			if (dda->move->steps == 0)
+				dda->status = DDA_FINISHED;
+			
+			break;
 	}
 }
 
-// called from step timer when current move is complete
-void next_move(DDA_QUEUE *queue) __attribute__ ((hot));
 
+/// DEBUG - print queue.
+/// Qt/hs format, t is tail, h is head, s is F/full, E/empty or neither
+void queue_debug_print(DDA_QUEUE *queue) {
+	sersendf_P(PSTR("Q%d/%d%c"), queue->mb_tail, queue->mb_head, (queue_full(queue)?'F':(queue_empty(queue)?'E':' ')));
+}
+
+void queue_init(DDA_QUEUE *queue){
+	uint8_t i;
+	
+	queue->mb_head = 0;
+	queue->mb_tail = 0;
+	
+	for(i=0; i<(sizeof(queue->movebuffer)/sizeof(queue->movebuffer[0])); i++){
+		queue->movebuffer[i].status = DDA_EMPTY;
+	}
+	MEMORY_BARRIER();
+}
 
 /// check if the queue is completely full
 uint8_t queue_full(DDA_QUEUE *queue) {
@@ -426,12 +397,41 @@ uint8_t queue_empty(DDA_QUEUE *queue) {
 	uint8_t save_reg = SREG;
 	cli();
 	
-	uint8_t result = ((queue->mb_tail == queue->mb_head) && (queue->movebuffer[queue->mb_tail].live == 0))?255:0;
+	uint8_t result = ((queue->mb_tail == queue->mb_head) && (queue->movebuffer[queue->mb_tail].status == DDA_FINISHED))?255:0;
 
 	MEMORY_BARRIER();
 	SREG = save_reg;
 
 	return result;
+}
+
+void queue_next_item(DDA_QUEUE *queue){
+	uint8_t t = queue->mb_tail + 1;
+	t &= (MOVEBUFFER_SIZE - 1);
+	queue->mb_tail = t;
+	
+	//return &queue->movebuffer[t];
+}
+
+void queue_push_item(DDA_QUEUE *queue, DDA *dda){
+	// don't call this function when the queue is full, but just in case, wait for a move to complete and free up the space for the passed target
+	while (queue_full(queue))
+		delay(WAITING_DELAY);
+	
+	uint8_t h = queue->mb_head + 1;
+	h &= (MOVEBUFFER_SIZE - 1);
+	
+	queue->movebuffer[h] = *dda; // this will take some space in code section, but makes source highly readable
+	
+	// make certain all writes to global memory
+	// are flushed before modifying queue->mb_head.
+	MEMORY_BARRIER();
+	
+	queue->mb_head = h;
+}
+
+DDA *queue_current_item(DDA_QUEUE *queue){
+	return &queue->movebuffer[queue->mb_tail];
 }
 
 // -------------------------------------------------------
@@ -440,115 +440,35 @@ uint8_t queue_empty(DDA_QUEUE *queue) {
 // -------------------------------------------------------
 /// Take a step or go to the next move.
 void queue_step(DDA_QUEUE *queue) {
-	// do our next step
-	DDA* current_movebuffer = &queue->movebuffer[queue->mb_tail];
-	if (current_movebuffer->live) {
-		// NOTE: dda_step makes this interrupt interruptible for some time,
-		//       see STEP_INTERRUPT_INTERRUPTIBLE.
-		dda_step(current_movebuffer);
+	DDA* current_movebuffer = queue_current_item(queue);
+	
+	switch(current_movebuffer->status){
+		case DDA_EMPTY: // nothing to do
+			break;
+		
+		case DDA_READY:  // do our steps
+		case DDA_RUNNING:
+			dda_step(current_movebuffer);
+			break;
+			
+		case DDA_FINISHED: // goto next queued move
+			while ((queue_empty(queue) == 0) && (queue->movebuffer[queue->mb_tail].status == DDA_FINISHED)) {
+				// next item
+				queue_next_item(queue);
+			} 
+			break;
 	}
-
-	// fall directly into dda_start instead of waiting for another step
-	// the dda dies not directly after its last step, but when the timer fires and there's no steps to do
-	if (current_movebuffer->live == 0)
-		next_move(queue);
 }
 
 /// add a move to the movebuffer
 /// \note this function waits for space to be available if necessary, check queue_full() first if waiting is a problem
 /// This is the only function that modifies queue->mb_head and it always called from outside an interrupt.
 void queue_enqueue(DDA_QUEUE *queue, TARGET *t) {
-	// don't call this function when the queue is full, but just in case, wait for a move to complete and free up the space for the passed target
-	while (queue_full(queue))
-		delay(WAITING_DELAY);
-
-	uint8_t h = queue->mb_head + 1;
-	h &= (MOVEBUFFER_SIZE - 1);
-
-	DDA* new_movebuffer = &(queue->movebuffer[h]);
+	DDA  new_movebuffer;
 	
-	if (t != NULL) {
-		if( dda_create(new_movebuffer, t) != 0) // null move
-			return;
-	}
-
-	// make certain all writes to global memory
-	// are flushed before modifying queue->mb_head.
-	MEMORY_BARRIER();
+	if( dda_create(&new_movebuffer, t) != 0) // null move
+		return;
 	
-	queue->mb_head = h;
-	
-	uint8_t save_reg = SREG;
-	cli();
-
-	uint8_t isdead = (queue->movebuffer[queue->mb_tail].live == 0);
-	
-	MEMORY_BARRIER();
-	SREG = save_reg;
-	
-	if (isdead) {
-		next_move(queue);
-		// Compensate for the cli() in setTimer().
-		sei(); // FIXME do we need it now?
-	}
+	queue_push_item(queue, &new_movebuffer);
 }
 
-/// go to the next move.
-/// be aware that this is sometimes called from interrupt context, sometimes not.
-/// Note that if it is called from outside an interrupt it must not/can not by
-/// be interrupted such that it can be re-entered from within an interrupt.
-/// The timer interrupt MUST be disabled on entry. This is ensured because
-/// the timer was disabled at the start of the ISR or else because the current
-/// move buffer was dead in the non-interrupt case (which indicates that the 
-/// timer interrupt is disabled).
-void next_move(DDA_QUEUE *queue) {
-	while ((queue_empty(queue) == 0) && (queue->movebuffer[queue->mb_tail].live == 0)) {
-		// next item
-		uint8_t t = queue->mb_tail + 1;
-		t &= (MOVEBUFFER_SIZE - 1);
-		DDA* current_movebuffer = &queue->movebuffer[t];
-		// tail must be set before setTimer call as setTimer
-		// reenables the timer interrupt, potentially exposing
-		// queue->mb_tail to the timer interrupt routine. 
-		queue->mb_tail = t;
-		
-		dda_start(current_movebuffer);
-	} 
-}
-
-void queue_init(DDA_QUEUE *queue){
-	queue->mb_head = 0;
-	queue->mb_tail = 0;
-}
-
-/// DEBUG - print queue.
-/// Qt/hs format, t is tail, h is head, s is F/full, E/empty or neither
-void queue_print(DDA_QUEUE *queue) {
-	sersendf_P(PSTR("Q%d/%d%c"), queue->mb_tail, queue->mb_head, (queue_full(queue)?'F':(queue_empty(queue)?'E':' ')));
-}
-
-/// dump queue for emergency stop.
-/// \todo effect on position_start is undefined!
-void queue_flush(DDA_QUEUE *queue) {
-	// Since the timer interrupt is disabled before this function
-	// is called it is not strictly necessary to write the variables
-	// inside an interrupt disabled block...
-	uint8_t save_reg = SREG;
-	cli();
-	
-	// flush queue
-	queue->mb_tail = queue->mb_head;
-	queue->movebuffer[queue->mb_head].live = 0;
-
-	// disable timer
-	timer_disable(0);
-	
-	MEMORY_BARRIER();
-	SREG = save_reg;
-}
-
-/// wait for queue to empty
-void queue_wait(DDA_QUEUE *queue) {
-	for (;queue_empty(queue) == 0;)
-		core_emit(EVENT_TICK, 0);
-}

@@ -15,6 +15,13 @@
 	types
 */
 
+typedef enum dda_status {
+	DDA_EMPTY,
+	DDA_READY,
+	DDA_RUNNING,
+	DDA_FINISHED
+} dda_status;
+
 /**
 	\struct TARGET
 	\brief target is simply a point in space/time
@@ -28,7 +35,6 @@ typedef struct {
 } TARGET;
 
 typedef struct {
-	 int32_t               counter;                    ///< bresenham counter for total_steps on axis
 	uint32_t               steps;                      ///< number of steps on axis
 	
 	#ifdef ACCELERATION_RAMPING
@@ -36,14 +42,6 @@ typedef struct {
 	uint32_t               ramping_c;                  ///< time until next step
 	int32_t                ramping_n;                  ///< tracking variable
 	#endif
-	#ifdef ACCELERATION_TEMPORAL
-	uint32_t               temporal_time;              ///< time of the last step
-	uint32_t               all_time;                   ///< time of the last step of any axis
-	#endif
-	
-	/// Endstop debouncing
-	uint8_t                debounce_count_min;
-	uint8_t                debounce_count_max;
 } DDA_MOVE;
 
 /**
@@ -54,14 +52,14 @@ typedef struct {
 	This struct is filled in by dda_create(), called from enqueue(), called mostly from gcode_process() and from a few other places too (eg \file homing.c)
 */
 typedef struct {
+	dda_status                                      status;
+	
 	/// this is where we should finish
 	TARGET                                          position_start;
 	TARGET						position_target;
 
 	union {
 		struct {
-			uint8_t						nullmove			:1; ///< bool: no axes move, maybe we wait for temperatures or change speed
-			uint8_t						live					:1; ///< bool: this DDA is running and still has steps to do
 			uint8_t						direction		:1; ///< direction flag for axis
 			
 			#ifdef ACCELERATION_REPRAP
@@ -84,9 +82,6 @@ typedef struct {
 	uint32_t					rampup_steps; ///< number of steps accelerating
 	uint32_t					rampdown_steps; ///< number of last step before decelerating
 	uint32_t					ramping_c_min; ///< 24.8 fixed point timer value, maximum speed
-	#endif
-	#ifdef ACCELERATION_TEMPORAL
-	uint32_t					temporal_step_interval; ///< time between steps on axis
 	#endif
 	
 	DDA_MOVE                                       *move;
@@ -112,6 +107,12 @@ typedef struct DDA_QUEUE {
 	DDA movebuffer[MOVEBUFFER_SIZE]; ///< this is the ringbuffer that holds the current and pending moves.
 } DDA_QUEUE;
 
+typedef struct dda_order {
+	uint32_t               c;             ///< time until next step
+	uint8_t                direction :1;  ///< direction to step
+	uint8_t                step      :1;  ///< make step or not
+} dda_order;
+
 /*
 	methods
 */
@@ -123,21 +124,12 @@ uint8_t queue_empty(DDA_QUEUE *queue);
 void queue_init(DDA_QUEUE *queue);
 
 // print queue status
-void queue_print(DDA_QUEUE *queue);
-
-// flush the queue for eg; emergency stop
-void queue_flush(DDA_QUEUE *queue);
-
-// wait for queue to empty
-void queue_wait(DDA_QUEUE *queue);
+void queue_debug_print(DDA_QUEUE *queue);
 
 // add a new target to the queue
 void queue_enqueue(DDA_QUEUE *queue, TARGET *t);
 
 // take one step
 void queue_step(DDA_QUEUE *queue);
-
-// update current_position
-void update_current_position(DDA_QUEUE *dda_queue);
 
 #endif	/* _DDA_QUEUE */
