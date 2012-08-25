@@ -117,7 +117,8 @@ redo:;
 		}
 	}
 	if(have_timers == 1){
-		timer_hardware_set(min); // ignore uninitialized min warning here, it is ok
+		min = min;
+		timer_hardware_set(min);
 	}
 }
 
