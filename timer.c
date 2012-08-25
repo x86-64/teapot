@@ -89,8 +89,12 @@ void timers_update(uint32_t time_passed){
 	for(i=0; i<NUM_TIMERS; i++){
 		if(timers[i].enabled == 0)
 			continue;
-
-		timers[i].time_left -= time_passed;                 // update time_left
+		
+		if(time_passed > timers[i].time_left){ // just in case, should not happen because time_passed defined by user's delay, not by real time passed
+			timers[i].time_left = 0;
+		}else{
+			timers[i].time_left -= time_passed;                 // update time_left
+		}
 	}
 }
 
