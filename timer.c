@@ -100,11 +100,9 @@ void timers_update(uint32_t time_passed){
 
 void timers_recalc(void){
 	uint8_t  i;
-	uint8_t  have_timers;
-	uint32_t min;
+	uint32_t min = 0xFFFFFFFF;
 	
 redo:;
-	have_timers = 0;
 	for(i=0; i<NUM_TIMERS; i++){
 		if(timers[i].enabled == 0)
 			continue;
@@ -115,15 +113,12 @@ redo:;
 			goto redo;                                  // since user could re-enable timer, we have to redo our calculations
 		}
 		
-		if((have_timers == 0) || (min > timers[i].time_left)){  // if this is first iteration, or this timer have less time to fire
-			min         = timers[i].time_left;
-			have_timers = 1;
+		if(min > timers[i].time_left){  // if this is first iteration, or this timer have less time to fire
+			min = timers[i].time_left;
 		}
 	}
-	if(have_timers == 1){
-		min = min;
+	if(min != 0xFFFFFFFF)
 		timer_hardware_set(min);
-	}
 }
 
 /// comparator B is the system clock, happens every TICK_TIME
