@@ -413,10 +413,13 @@ uint8_t queue_empty(dda_queue_t *queue) {
 }
 
 void queue_next_item(dda_queue_t *queue){
-	uint8_t t = queue->mb_tail + 1;
-	t &= (MOVEBUFFER_SIZE - 1);
-	queue->mb_tail = t;
-	
+	while ((queue_empty(queue) == 0) && (queue->movebuffer[queue->mb_tail].status == DDA_FINISHED)) {
+		// next item
+		
+		uint8_t t = queue->mb_tail + 1;
+		t &= (MOVEBUFFER_SIZE - 1);
+		queue->mb_tail = t;
+	}
 	//return &queue->movebuffer[t];
 }
 
@@ -464,10 +467,7 @@ void queue_step(dda_queue_t *queue, dda_order_t *order) {
 			break;
 			
 		case DDA_FINISHED: // goto next queued move
-			while ((queue_empty(queue) == 0) && (queue->movebuffer[queue->mb_tail].status == DDA_FINISHED)) {
-				// next item
-				queue_next_item(queue);
-			} 
+			queue_next_item(queue);
 			break;
 	}
 }
