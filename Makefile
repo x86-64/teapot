@@ -156,7 +156,7 @@ features.h:
 	echo "void features_init(void);" >> features.h
 	echo "  #ifdef FEATURES_C" >> features.h
 	echo "    void features_init(void){" >> features.h
-	             find -L configs/ -iname '*.c' -exec grep -Po "[a-z0-9]+_init" -r {} \; | sort -u | awk '{print $$0 "();"}' >> features.h
+	             find -L configs/ -iname '*.c' -exec grep -Po "API void [a-z0-9]+_init" -r {} \; | sort -u | awk -F\   '{print $$3 "();"}' >> features.h
 	echo "    }" >> features.h
 	echo "  #endif" >> features.h
 	echo "#endif" >> features.h
