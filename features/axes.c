@@ -182,7 +182,13 @@ void axes_gcode(void *next_target){
 }
 
 void axes_init(void){
+	uint8_t                i;
+	
 	core_register(EVENT_GCODE_PROCESS, &axes_gcode);
+	
+	for(i=0; i<axes_count; i++){
+		axes[i].func_init(&axes[i], &axes_runtime[i]);
+	}
 }
 
 /*
