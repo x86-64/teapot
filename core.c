@@ -4,7 +4,7 @@
 event_func  core_events[MAX_EVENT][MAX_FUNCS];
 
 int core_register(core_event_type type, event_func core_event){
-	int i;
+	uint8_t i;
 
 	for(i=0; i<MAX_FUNCS; i++){
 		if(!core_events[type][i]){
@@ -17,11 +17,12 @@ int core_register(core_event_type type, event_func core_event){
 }
 
 void core_emit(core_event_type type, void *userdata){
-	int i;
+	uint8_t i;
 
 	for(i=0; i<MAX_FUNCS; i++){
-		if(core_events[type][i])
+		if(core_events[type][i]){
 			core_events[type][i](userdata);
+		}
 	}
 }
 
