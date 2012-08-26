@@ -7,7 +7,7 @@ void fan_gcode_process(void *next_target){
 	if(! PARAMETER_SEEN(L_M) )
 		return;
 	
-	switch(PARAMETER(L_M)){
+	switch(PARAMETER_asint(L_M)){
 		case 7:
 		case 106:
 			//? --- M106: Fan On ---

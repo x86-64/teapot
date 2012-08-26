@@ -7,13 +7,13 @@
 *                                                                           *
 * Request a resend of the current line - used from various places.          *
 *                                                                           *
-* Relies on the global variable PARAMETER(L_N) being valid.                  *
+* Relies on the global variable PARAMETER_asint(L_N) being valid.                  *
 *                                                                           *
 \***************************************************************************/
 
 void request_resend(void *next_target) {
 	serial_writestr_P(PSTR("rs "));
-	serwrite_uint8(PARAMETER(L_N));
+	serwrite_uint8(PARAMETER_asint(L_N));
 	serial_writechar('\n');
 }
 
@@ -32,20 +32,20 @@ uint32_t N_expected;
 void process_gcode_command(void *next_target) {
 	#ifdef	REQUIRE_LINENUMBER
 		if( 
-			((PARAMETER(L_N) >= N_expected) && (PARAMETER_SEEN(L_N))) ||
-			(PARAMETER_SEEN(L_M) && (PARAMETER(L_M) == 110))){
+			((PARAMETER_asint(L_N) >= N_expected) && (PARAMETER_SEEN(L_N))) ||
+			(PARAMETER_SEEN(L_M) && (PARAMETER_asint(L_M) == 110))){
 		}else {
-			sersendf_P(PSTR("rs N%ld Expected line number %ld\n"), PARAMETER(L_N), N_expected);
+			sersendf_P(PSTR("rs N%ld Expected line number %ld\n"), PARAMETER_asint(L_N), N_expected);
 			//request_resend();
 		}
 			
 		// expect next line number
 		if (PARAMETER_SEEN(L_N))
-			N_expected = PARAMETER(L_N) + 1;
+			N_expected = PARAMETER_asint(L_N) + 1;
 	#endif
 	
 	#ifdef	REQUIRE_CHECKSUM
-		if( (PARAMETER_SEEN(L_CHECKSUM)) || (next_target->checksum != PARAMETER(L_CHECKSUM)) ){
+		if( (PARAMETER_SEEN(L_CHECKSUM)) || (next_target->checksum != PARAMETER_asint(L_CHECKSUM)) ){
 			sersendf_P(PSTR("rs N%ld Expected checksum %d\n"), N_expected, next_target->checksum);
 			//request_resend();
 		}
@@ -56,7 +56,7 @@ void process_gcode_command(void *next_target) {
 	// The GCode documentation was taken from http://reprap.org/wiki/Gcode .
 	
 	if (PARAMETER_SEEN(L_M)) {
-		switch (PARAMETER(L_M)) {
+		switch (PARAMETER_asint(L_M)) {
 			case 112:
 				//? --- M112: Emergency Stop ---
 				//?
@@ -95,6 +95,6 @@ void process_gcode_command(void *next_target) {
 
 				sersendf_P(PSTR("FIRMWARE_NAME:Teacup FIRMWARE_URL:http%%3A//github.com/triffid/Teacup_Firmware/ PROTOCOL_VERSION:%d.0 MACHINE_TYPE:Mendel "), 1);
 				break;
-		} // switch (PARAMETER(L_M))
+		} // switch (PARAMETER_asint(L_M))
 	} // else if (PARAMETER_SEEN(L_M))
 } // process_gcode_command()

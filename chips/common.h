@@ -27,12 +27,12 @@
 
 #include "core.h"
 #include "dda.h"
+#include "utils.h"
 
 #include "gcode_parse.h"
 #include "gcode_process.h"
 #include "serial.h"
 
-#include "utils.h"
 
 #ifndef FEATURE
 #include "features.h"

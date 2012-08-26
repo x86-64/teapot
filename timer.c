@@ -51,7 +51,7 @@ void timers_gcode(void *next_target){
 	if(! PARAMETER_SEEN(L_M))
 		return;
 	
-	switch(PARAMETER(L_M)){
+	switch(PARAMETER_asint(L_M)){
 		case 112:
 			//? --- M112: Emergency Stop ---
 			//?

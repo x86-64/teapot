@@ -32,7 +32,7 @@ void power_gcode_process(void *next_target){
 	if(! PARAMETER_SEEN(L_M) )
 		return;
 	
-	switch(PARAMETER(L_M)){
+	switch(PARAMETER_asint(L_M)){
 		case 0:
 			//? --- M0: machine stop ---
 			//?

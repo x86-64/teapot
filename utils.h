@@ -32,7 +32,7 @@ typedef struct {
 #define	DECFLOAT_MANT_IN_MAX 164093   // = 164 inches = 4160 mm
 
 int32_t decfloat_to_int(decfloat *df, uint16_t multiplicand);
-
+void    decfloat_set_int(decfloat *df, int32_t value);
 
 #define MIN(a,b)  ((a < b) ? a : b)
 #define MAX(a,b)  ((a < b) ? b : a)

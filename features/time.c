@@ -6,7 +6,7 @@ API void time_init(void);
 
 void time_gcode_process(void *next_target){
 	if (PARAMETER_SEEN(L_G)) {
-		switch (PARAMETER(L_G)) {
+		switch (PARAMETER_asint(L_G)) {
 			case 4:
 				//? --- G4: Dwell ---
 				//?
@@ -20,7 +20,7 @@ void time_gcode_process(void *next_target){
 				if (PARAMETER_SEEN(L_P)) {
 					int32_t delay;
 					
-					for (delay = PARAMETER(L_P); delay > 0; delay--){
+					for (delay = PARAMETER_asint(L_P); delay > 0; delay--){
 						core_emit(EVENT_TICK, 0);
 						delay_ms(1);
 					}

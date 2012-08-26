@@ -104,7 +104,7 @@ void gcode_debug_print(GCODE_COMMAND *next_target){
 	serial_writechar('[');
 	for(i=0; i<MAX_LETTER; i++){
 		if(PARAMETER_SEEN(i))
-			sersendf_P(PSTR("%c%d "), gcode_convert_letter(i), PARAMETER(i));
+			sersendf_P(PSTR("%c%d "), gcode_convert_letter(i), PARAMETER_asint(i));
 	}
 	serial_writechar(']');
 }
@@ -202,7 +202,7 @@ redo:;
 				case T_NEWLINE: // we finished
 				case T_SPACE:   
 					// since we use universal parameters table - all conversions to inch or mm goes to according modules
-					next_gcode.parameters[gcode_parser_char] = decfloat_to_int(&read_digit, 1);
+					next_gcode.parameters[gcode_parser_char] = read_digit;
 					
 					gcode_parser_state = S_PARSE_CHAR;
 					gcode_parser_char  = MAX_LETTER;

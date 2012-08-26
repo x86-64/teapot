@@ -44,7 +44,7 @@ void axes_debug_print(void){
 /// This function apply to any axis
 void axis_gcode_universal(const axis_t *axis, axis_runtime_t *axis_runtime, void *next_target){
 	if(PARAMETER_SEEN(L_G)){
-		switch(PARAMETER(L_G)){
+		switch(PARAMETER_asint(L_G)){
 			case 20:
 				//? --- G20: Set Units to Inches ---
 				//?
@@ -99,7 +99,7 @@ void axis_gcode_universal(const axis_t *axis, axis_runtime_t *axis_runtime, void
 		}
 	}
 	if(PARAMETER_SEEN(L_M)){
-		switch(PARAMETER(L_M)){
+		switch(PARAMETER_asint(L_M)){
 			case 82:
 				//? --- M82 - Set E codes absolute ---
 				//?

@@ -15,11 +15,11 @@ void toolchange_gcode_process(void *next_target){
 		//?
 		//? Select extruder number 1 to build with.  Extruder numbering starts at 0.
 		
-		next_tool = PARAMETER(L_T);
+		next_tool = PARAMETER_asint(L_T);
 	}
 	
 	if(PARAMETER_SEEN(L_M)) {
-		switch(PARAMETER(L_M)){
+		switch(PARAMETER_asint(L_M)){
 			case 6:
 				//? --- M6: tool change ---
 				//?

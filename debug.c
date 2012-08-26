@@ -7,7 +7,7 @@ void debug_gcode_process(void *next_target){
 	if(! PARAMETER_SEEN(L_M) )
 		return;
 	
-	switch(PARAMETER(L_M)){
+	switch(PARAMETER_asint(L_M)){
 		case 240:
 			//? --- M240: echo off ---
 			//? Disable echo.
@@ -45,7 +45,7 @@ void debug_gcode_process(void *next_target){
 			if ( ! PARAMETER_SEEN(L_S) )
 				break;
 			
-			debug_flags = PARAMETER(L_S);
+			debug_flags = PARAMETER_asint(L_S);
 			break;
 		
 		case 253:
@@ -56,8 +56,8 @@ void debug_gcode_process(void *next_target){
 			if ( ! PARAMETER_SEEN(L_S))
 				break;
 			
-			uint8_t *from = (void *)( (uint16_t) PARAMETER(L_S) );
-			uint32_t size = PARAMETER_SEEN(L_P) ? PARAMETER(L_P) : 1;
+			uint8_t *from = (void *)( (uint16_t) PARAMETER_asint(L_S) );
+			uint32_t size = PARAMETER_SEEN(L_P) ? PARAMETER_asint(L_P) : 1;
 			
 			for (; size; size--, from++)
 				serwrite_hex8( *(volatile uint8_t *)from );
@@ -70,10 +70,10 @@ void debug_gcode_process(void *next_target){
 			if ( ! PARAMETER_SEEN(L_S) || ! PARAMETER_SEEN(L_P))
 				break;
 			
-			uint8_t *to   = (void *)( (uint16_t) PARAMETER(L_S) );
-			uint8_t  what = PARAMETER(L_P);
+			uint8_t *to   = (void *)( (uint16_t) PARAMETER_asint(L_S) );
+			uint8_t  what = PARAMETER_asint(L_P);
 			
-			sersendf_P(PSTR("%x:%x->%x"), PARAMETER(L_S), *(volatile uint8_t *)to, what);
+			sersendf_P(PSTR("%x:%x->%x"), PARAMETER_asint(L_S), *(volatile uint8_t *)to, what);
 			(*(volatile uint8_t *)to) = what;
 			break;
 	}

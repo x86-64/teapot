@@ -33,3 +33,14 @@ int32_t decfloat_to_int(decfloat *df, uint16_t multiplicand) {
 
 	return df->sign ? -(int32_t)r : (int32_t)r;
 }
+
+void  decfloat_set_int(decfloat *df, int32_t value){
+	if(value < 0){
+		df->mantissa = -value;
+		df->sign     = 1;
+	}else{
+		df->mantissa = value;
+		df->sign     = 0;
+	}
+	df->exponent = 0;
+}
