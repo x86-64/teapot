@@ -19,6 +19,15 @@ void axis_stepdir_gcode(const axis_t *axis, axis_runtime_t *axis_runtime, void *
 		switch(PARAMETER_asint(L_G)){
 			case 0:
 				
+	sersendf_P(PSTR(
+		"{AXIS_RUN: letter: '%c', "
+			"relative: %d, "
+			"inches: %d"
+		"}"),
+		gcode_convert_letter(axis->letter),
+		axis_runtime->relative,
+		axis_runtime->inches
+	);
 
 				break;
 			// TODO position_min/max

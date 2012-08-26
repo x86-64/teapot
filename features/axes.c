@@ -22,10 +22,12 @@ void axis_debug_print(const axis_t *axis){
 void axis_debug_runtime_print(const axis_t *axis, const axis_runtime_t *axis_runtime){
 	sersendf_P(PSTR(
 		"{AXIS_RUN: letter: '%c', "
+			"position: %ld, "
 			"relative: %d, "
 			"inches: %d"
 		"}"),
 		gcode_convert_letter(axis->letter),
+		axis_runtime->position_curr,
 		axis_runtime->relative,
 		axis_runtime->inches
 	);
