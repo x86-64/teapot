@@ -18,6 +18,8 @@ void axis_stepdir_gcode(const axis_t *axis, axis_runtime_t *axis_runtime, void *
 	if(PARAMETER_SEEN(L_G)){
 		switch(PARAMETER_asint(L_G)){
 			case 0:
+				
+
 				break;
 			// TODO position_min/max
 		}

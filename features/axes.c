@@ -45,6 +45,27 @@ void axes_debug_print(void){
 void axis_gcode_universal(const axis_t *axis, axis_runtime_t *axis_runtime, void *next_target){
 	if(PARAMETER_SEEN(L_G)){
 		switch(PARAMETER_asint(L_G)){
+			case 0: // G0,1 movements
+			case 1:
+				// convert coordinate to um with respect to current measurment mode
+				if(axis_runtime->inches){
+					PARAMETER_SET(next_target, axis->letter,
+						PARAMETER_asmult(axis->letter, 25400)
+					); 
+				}else{
+					PARAMETER_SET(next_target, axis->letter,
+						PARAMETER_asmult(axis->letter, 1000)
+					); 
+				}
+				
+				// if relative mode is on - convert relative coordinates to absolute
+				if(axis_runtime->relative){
+					PARAMETER_SET(next_target, axis->letter,
+						axis_runtime->position_curr + PARAMETER_asint(axis->letter)
+					);
+				}
+				break;
+				
 			case 20:
 				//? --- G20: Set Units to Inches ---
 				//?
