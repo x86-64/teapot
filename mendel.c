@@ -243,8 +243,6 @@ void io_init(void) {
 
 /// Startup code, run when we come out of reset
 void init(void) {
-	features_init();
-	
 	debug_init();
 
 	// set up serial
@@ -256,6 +254,8 @@ void init(void) {
 	// set up timers
 	timers_init();
 
+	features_init();
+	
 	// read PID settings from EEPROM
 	//heater_init();
 

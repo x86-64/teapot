@@ -29,6 +29,8 @@
 #include "dda.h"
 #include "utils.h"
 
+#include "timer.h"
+
 #include "gcode_parse.h"
 #include "gcode_process.h"
 #include "serial.h"
