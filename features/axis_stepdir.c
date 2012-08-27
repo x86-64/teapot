@@ -11,7 +11,28 @@ API void           axis_stepdir_gcode(axis_t *axis, void *next_target);
 API axis_proto_t   axis_stepdir_proto;
 
 void axis_stepdir_timer(uint8_t id, void *paxis){
-	timer_enable(id);
+	dda_order_t            order;
+	axis_t                *axis              = (axis_t *)paxis;
+	axis_stepdir_userdata *userdata          = (axis_stepdir_userdata *)axis->userdata;
+	
+	// 1. make dda step to calculate our next move
+	do{
+		dda_queue_step(&userdata->queue, &order);
+	}while( order.callme == 1 && order.c == 0 ); // if dda request callback immediatly - do it
+	
+	// 2. check dda orders:
+	
+	// - dda ask to step?
+	if(order.step){
+		sersendf_P(PSTR("%c"), order.direction ? 'F' : 'B');
+	}
+	
+	// - dda ask to callback?
+	timer_charge(id,
+		order.callme ?
+			order.c :    // for specified by dda time
+			IDLE_TIME    // nothing to do, idle wait
+	);
 }
 
 void axis_stepdir_init(axis_t *axis){
@@ -34,7 +55,7 @@ void axis_stepdir_gcode(axis_t *axis, void *next_target){
 		switch(PARAMETER_asint(L_G)){
 			case 0:	
 				target.X = PARAMETER_asint(axis->letter);
-				target.F = PARAMETER_asint(axis->feedrate_max);
+				target.F = axis->feedrate_max;
 				
 				dda_queue_enqueue(&userdata->queue, &target);
 				
