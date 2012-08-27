@@ -2,10 +2,22 @@
 #define AXES_H
 
 typedef struct axis_t         axis_t;
-typedef struct axis_runtime_t axis_runtime_t;
 
-typedef void (*func_axis_init)(const axis_t *axis, axis_runtime_t *axis_runtime);
-typedef void (*func_axis_gcode)(const axis_t *axis, axis_runtime_t *axis_runtime, void *next_target);
+typedef void (*func_axis_init)(axis_t *axis);
+typedef void (*func_axis_gcode)(axis_t *axis, void *next_target);
+
+typedef struct axis_runtime_t {
+	uint8_t                relative :1;          ///< Use relative mode
+	uint8_t                inches   :1;          ///< Use inches (1) or mm (0)
+	void                  *userdata;             ///< Stepper runtime userdata
+
+	 int32_t               position_curr;        ///< Current position on axis
+} axis_runtime_t;
+
+typedef struct axis_proto_t {
+	func_axis_init         func_init;            ///< Function to call on start
+	func_axis_gcode        func_gcode;           ///< Function to handle gcodes
+} axis_proto_t;
 
 typedef struct axis_t {
 	uint8_t                sticky_relative   :1; ///< Ignore G90/91 requests
@@ -19,19 +31,10 @@ typedef struct axis_t {
 	 int32_t               position_max;         ///< Maximal position value (um)
 	const void            *userdata;             ///< Stepper userdata
 	
-	func_axis_init         func_init;            ///< Function to call on start
-	func_axis_gcode        func_gcode;           ///< Function to handle gcodes
+	axis_proto_t          *proto;                ///< Prototype functions
+	axis_runtime_t         runtime;              ///< Runtime data
 } axis_t;
 
-typedef struct axis_runtime_t {
-	uint8_t                relative :1;          ///< Use relative mode
-	uint8_t                inches   :1;          ///< Use inches (1) or mm (0)
-	void                  *userdata;             ///< Stepper runtime userdata
-
-	 int32_t               position_curr;        ///< Current position on axis
-} axis_runtime_t;
-
-extern const axis_t          axes[];
+extern       axis_t          axes[];
 extern const uint8_t         axes_count;
-extern       axis_runtime_t  axes_runtime[];
 #endif

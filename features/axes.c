@@ -3,33 +3,26 @@
 
 API void axes_init(void);
 
-void axis_debug_print(const axis_t *axis){
+void axis_debug_print(axis_t *axis){
 	sersendf_P(PSTR(
 		"{AXIS: letter: '%c', "
 			"sticky: %d, "
 			"have_min: %d, have_max: %d, "
 			"feed_search: %lu, feed_max: %lu, "
-			"pos_min: %ld, pos_max: %ld"
-		"}"),
-		gcode_convert_letter(axis->letter),
-		axis->sticky_relative,
-		axis->have_position_min, axis->have_position_max,
-		axis->feedrate_search,   axis->feedrate_max,
-		axis->position_min,      axis->position_max
-	);
-}
-
-void axis_debug_runtime_print(const axis_t *axis, const axis_runtime_t *axis_runtime){
-	sersendf_P(PSTR(
-		"{AXIS_RUN: letter: '%c', "
+			"pos_min: %ld, pos_max: %ld, "
+			"letter: '%c', "
 			"position: %ld, "
 			"relative: %d, "
 			"inches: %d"
 		"}"),
 		gcode_convert_letter(axis->letter),
-		axis_runtime->position_curr,
-		axis_runtime->relative,
-		axis_runtime->inches
+		axis->sticky_relative,
+		axis->have_position_min, axis->have_position_max,
+		axis->feedrate_search,   axis->feedrate_max,
+		axis->position_min,      axis->position_max,
+		axis->runtime.position_curr,
+		axis->runtime.relative,
+		axis->runtime.inches
 	);
 }
 
@@ -38,19 +31,18 @@ void axes_debug_print(void){
 
 	for(i=0; i<axes_count; i++){
 		axis_debug_print(&axes[i]);
-		axis_debug_runtime_print(&axes[i], &axes_runtime[i]);
 		serial_writechar('\n');
 	}
 }
 
 /// This function apply to any axis
-void axis_gcode_universal(const axis_t *axis, axis_runtime_t *axis_runtime, void *next_target){
+void axis_gcode_universal(axis_t *axis, void *next_target){
 	if(PARAMETER_SEEN(L_G)){
 		switch(PARAMETER_asint(L_G)){
 			case 0: // G0,1 movements
 			case 1:
 				// convert coordinate to um with respect to current measurment mode
-				if(axis_runtime->inches){
+				if(axis->runtime.inches){
 					PARAMETER_SET(next_target, axis->letter,
 						PARAMETER_asmult(axis->letter, 25400)
 					); 
@@ -61,9 +53,9 @@ void axis_gcode_universal(const axis_t *axis, axis_runtime_t *axis_runtime, void
 				}
 				
 				// if relative mode is on - convert relative coordinates to absolute
-				if(axis_runtime->relative){
+				if(axis->runtime.relative){
 					PARAMETER_SET(next_target, axis->letter,
-						axis_runtime->position_curr + PARAMETER_asint(axis->letter)
+						axis->runtime.position_curr + PARAMETER_asint(axis->letter)
 					);
 				}
 				break;
@@ -75,7 +67,7 @@ void axis_gcode_universal(const axis_t *axis, axis_runtime_t *axis_runtime, void
 				//?
 				//? Units from now on are in inches.
 				//?
-				axis_runtime->inches = 1;
+				axis->runtime.inches = 1;
 				break;
 
 			case 21:
@@ -85,7 +77,7 @@ void axis_gcode_universal(const axis_t *axis, axis_runtime_t *axis_runtime, void
 				//?
 				//? Units from now on are in millimeters.  (This is the RepRap default.)
 				//?
-				axis_runtime->inches = 0;
+				axis->runtime.inches = 0;
 				break;
 
 			case 90:
@@ -104,7 +96,7 @@ void axis_gcode_universal(const axis_t *axis, axis_runtime_t *axis_runtime, void
 
 				// No wait_queue() needed.
 				if(axis->sticky_relative == 0)
-					axis_runtime->relative = 0;
+					axis->runtime.relative = 0;
 				break;
 
 			case 91:
@@ -117,7 +109,7 @@ void axis_gcode_universal(const axis_t *axis, axis_runtime_t *axis_runtime, void
 				
 				// No wait_queue() needed.
 				if(axis->sticky_relative == 0)
-					axis_runtime->relative = 1;
+					axis->runtime.relative = 1;
 				break;
 		}
 	}
@@ -136,7 +128,7 @@ void axis_gcode_universal(const axis_t *axis, axis_runtime_t *axis_runtime, void
 
 				// No wait_queue() needed.
 				if(axis->sticky_relative == 1)
-					axis_runtime->relative = 0;
+					axis->runtime.relative = 0;
 				break;
 
 			case 83:
@@ -147,7 +139,7 @@ void axis_gcode_universal(const axis_t *axis, axis_runtime_t *axis_runtime, void
 
 				// No wait_queue() needed.
 				if(axis->sticky_relative == 1)
-					axis_runtime->relative = 1;
+					axis->runtime.relative = 1;
 				break;
 			
 			case 400:
@@ -166,18 +158,18 @@ void axis_gcode_universal(const axis_t *axis, axis_runtime_t *axis_runtime, void
 }
 
 // This function is per-axis only
-void axis_gcode_letter(const axis_t *axis, axis_runtime_t *axis_runtime, void *next_target){
-	axis->func_gcode(axis, axis_runtime, next_target);
+void axis_gcode_letter(axis_t *axis, void *next_target){
+	axis->proto->func_gcode(axis, next_target);
 }
 
 void axes_gcode(void *next_target){
 	uint8_t                i;
 	
 	for(i=0; i<axes_count; i++){
-		axis_gcode_universal(&axes[i], &axes_runtime[i], next_target);
+		axis_gcode_universal(&axes[i], next_target);
 		
 		if(PARAMETER_SEEN(axes[i].letter))
-			axis_gcode_letter(&axes[i], &axes_runtime[i], next_target);
+			axis_gcode_letter(&axes[i], next_target);
 	}
 }
 
@@ -187,7 +179,7 @@ void axes_init(void){
 	core_register(EVENT_GCODE_PROCESS, &axes_gcode);
 	
 	for(i=0; i<axes_count; i++){
-		axes[i].func_init(&axes[i], &axes_runtime[i]);
+		axes[i].proto->func_init(&axes[i]);
 	}
 }
 
