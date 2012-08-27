@@ -36,6 +36,7 @@ timer stuff
 */
 void timers_init(void) __attribute__ ((cold));
 void timers_stop(void);
+uint8_t timer_new(void);
 void timer_setup(uint8_t id, timer_callback callback, void *userdata);
 void timer_enable(uint8_t id);
 void timer_disable(uint8_t id);

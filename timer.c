@@ -18,6 +18,7 @@
 
 #define NUM_TIMERS 3
 timer_t timers[NUM_TIMERS];
+volatile uint8_t        timers_used = 0; ///< timer_new counter
 
 /// how often we overflow and update our clock; with F_CPU=16MHz, max is < 4.096ms (TICK_TIME = 65535)
 #define		TICK_TIME			2 MS
@@ -276,6 +277,15 @@ void timer_hardware_set(uint32_t delay)
 void timers_stop() {
 	// disable all interrupts
 	TIMSK1 = 0;
+}
+
+uint8_t timer_new(void){
+	uint8_t id = timers_used++;
+	
+	if(id >= NUM_TIMERS)
+		return -1;
+	
+	return id;
 }
 
 void timer_setup(uint8_t id, timer_callback callback, void *userdata){
