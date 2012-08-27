@@ -6,7 +6,6 @@
 */
 
 typedef enum dda_status {
-	DDA_EMPTY,
 	DDA_READY,
 	DDA_RUNNING,
 	DDA_FINISHED
@@ -25,8 +24,6 @@ typedef struct {
 } dda_target_t;
 
 typedef struct dda_move_t {
-	uint32_t               steps;                      ///< number of steps on axis
-	
 	#ifdef ACCELERATION_RAMPING
 	uint32_t               ramping_step_no;            ///< counts actual steps done
 	uint32_t               ramping_c;                  ///< time until next step
