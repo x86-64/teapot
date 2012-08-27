@@ -30,6 +30,7 @@
 #include "utils.h"
 
 #include "timer.h"
+#include "queue.h"
 
 #include "gcode_parse.h"
 #include "gcode_process.h"

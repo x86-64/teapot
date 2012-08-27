@@ -94,7 +94,7 @@ PROGID = avrisp
 PROGRAM = mendel
 
 FEATURES_ENABLED=$(shell find -L configs/ -iname '*.c') 
-SOURCES = $(FEATURES_ENABLED) core.c $(PROGRAM).c gcode_parse.c gcode_process.c dda.c dda_maths.c timer.c debug.c pinio.c crc.c delay.c utils.c
+SOURCES = $(FEATURES_ENABLED) core.c $(PROGRAM).c gcode_parse.c gcode_process.c dda.c dda_maths.c timer.c debug.c pinio.c crc.c delay.c utils.c queue.c
 
 ARCH = avr-
 CC = $(ARCH)gcc
