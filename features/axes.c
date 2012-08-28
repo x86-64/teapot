@@ -10,7 +10,6 @@ void axis_debug_print(axis_t *axis){
 			"have_min: %d, have_max: %d, "
 			"feed_search: %lu, feed_max: %lu, "
 			"pos_min: %ld, pos_max: %ld, "
-			"letter: '%c', "
 			"position: %ld, "
 			"relative: %d, "
 			"inches: %d"
@@ -24,15 +23,6 @@ void axis_debug_print(axis_t *axis){
 		axis->runtime.relative,
 		axis->runtime.inches
 	);
-}
-
-void axes_debug_print(void){
-	uint8_t i;
-
-	for(i=0; i<axes_count; i++){
-		axis_debug_print(&axes[i]);
-		serial_writechar('\n');
-	}
 }
 
 /// This function apply to any axis
@@ -150,7 +140,8 @@ void axis_gcode_universal(axis_t *axis, void *next_target){
 			#ifdef DEBUG
 			case 401:
 				//? --- M401 - Show debug info
-				axes_debug_print();
+				axis_debug_print(axis);
+				serial_writechar('\n');
 				break;
 			#endif
 		}
