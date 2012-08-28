@@ -40,10 +40,6 @@ typedef struct dda_move_t {
 */
 typedef struct dda_t {
 	dda_status                                      status;
-	
-	/// this is where we should finish
-	dda_target_t                                    position_start;
-	dda_target_t                                    position_target;
 
 	union {
 		struct {
@@ -116,7 +112,7 @@ void dda_queue_init(dda_queue_t *queue);
 void dda_queue_debug_print(dda_queue_t *queue);
 
 // add a new target to the queue
-void dda_queue_enqueue(dda_queue_t *queue, dda_target_t *t);
+void dda_queue_enqueue(dda_queue_t *queue, dda_target_t *start, dda_target_t *t);
 
 // take one step
 void dda_queue_step(dda_queue_t *queue, dda_order_t *order);

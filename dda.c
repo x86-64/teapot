@@ -31,12 +31,12 @@
 
 //#include "graycode.c"
 
-/*! Distribute a new dda->position_start to dda's internal structures without any movement.
+/*! Distribute a new position_start to dda's internal structures without any movement.
 
-	This is needed for example after homing or a G92. The new location must be in dda->position_start already.
+	This is needed for example after homing or a G92. The new location must be in position_start already.
 */
 
-void dda_create_acceleration_none(dda_t *dda){ // {{{
+void dda_create_acceleration_none(dda_t *dda, dda_target_t *position_start, dda_target_t *position_target){ // {{{
 	uint32_t	       target_st;
 	uint32_t               start_st;
 	
@@ -48,11 +48,11 @@ void dda_create_acceleration_none(dda_t *dda){ // {{{
 		dda->direction = (target->E >= 0)?1:0;
 	}
 	else {*/
-		target_st        = um_to_steps_x(dda->position_target.X);
-		start_st         = um_to_steps_x(dda->position_start.X);
-		dda->delta_um    = (uint32_t)labs(dda->position_target.X - dda->position_start.X);
+		target_st        = um_to_steps_x(position_target->X);
+		start_st         = um_to_steps_x(position_start->X);
+		dda->delta_um    = (uint32_t)labs(position_target->X - position_start->X);
 		dda->delta_steps = (uint32_t)labs(target_st - start_st);
-		dda->direction   = (dda->position_target.X >= dda->position_start.X) ? 1 : 0;
+		dda->direction   = (position_target->X >= position_start->X) ? 1 : 0;
 	//}
 	
 	// pre-calculate move speed in millimeter microseconds per step minute for less math in interrupt context
@@ -73,7 +73,7 @@ void dda_create_acceleration_none(dda_t *dda){ // {{{
 	uint32_t move_duration = ((dda->delta_um * 2400) / dda->delta_steps) * (F_CPU / 40000);
 	
 	
-	dda->c = (move_duration / dda->position_target.F) << 8;
+	dda->c = (move_duration / position_target->F) << 8;
 } // }}}
 
 #ifdef ACCELERATION_TEMPORAL
@@ -85,9 +85,9 @@ void dda_create_acceleration_none(dda_t *dda){ // {{{
 
 	One problem undoubtly arising is, steps should sometimes be done at {almost,exactly} the same time. We trust the timer to deal properly with very short or even zero periods. If a step can't be done in time, the timer shall do the step as soon as possible and compensate for the delay later. In turn we promise here to send a maximum of four such short-delays consecutively and to give sufficient time on average.
 */
-void dda_create_acceleration_temporal(dda_t *dda){ // {{{
+void dda_create_acceleration_temporal(dda_t *dda, dda_target_t *position_start, dda_target_t *position_target){ // {{{
 	// bracket part of this equation in an attempt to avoid overflow: 60 * 16MHz * 5mm is >32 bits
-	uint32_t move_duration = dda->delta_um * ((60 * F_CPU) / (dda->position_target.F * 1000UL));
+	uint32_t move_duration = dda->delta_um * ((60 * F_CPU) / (position_target->F * 1000UL));
 	
 	dda->c = (move_duration / dda->delta_steps) << 8;
 } // }}}
@@ -98,7 +98,7 @@ void dda_step_acceleration_temporal(dda_t *dda){ // {{{
 #endif
 
 #ifdef ACCELERATION_RAMPING
-void dda_create_acceleration_ramping(dda_t *dda){ // {{{
+void dda_create_acceleration_ramping(dda_t *dda, dda_target_t *position_start, dda_target_t *position_target){ // {{{
 	
 	dda->move->ramping_n = 1;
 	dda->move->ramping_c = ((uint32_t)((double)F_CPU / sqrt((double)(STEPS_PER_M_X * ACCELERATION / 1000.)))) << 8;
@@ -121,11 +121,11 @@ void dda_create_acceleration_ramping(dda_t *dda){ // {{{
 	uint32_t move_duration = ((dda->delta_um * 2400) / dda->delta_steps) * (F_CPU / 40000);
 	
 	// yes, this assumes always the x axis as the critical one regarding acceleration. If we want to implement per-axis acceleration, things get tricky ...
-	dda->ramping_c_min = (move_duration / dda->position_target.F) << 8;
+	dda->ramping_c_min = (move_duration / position_target->F) << 8;
 	//dda->ramping_c_min = MAX(dda->ramping_c_min, c_limit);
 // This section is plain wrong, like in it's only half of what we need. This factor 960000 is dependant on STEPS_PER_MM.
-// overflows at dda->position_target.F > 65535; factor 16. found by try-and-error; will overshoot target speed a bit
-	dda->rampup_steps = dda->position_target.F * dda->position_target.F / (uint32_t)(STEPS_PER_M_X * ACCELERATION / 960000.);
+// overflows at position_target->F > 65535; factor 16. found by try-and-error; will overshoot target speed a bit
+	dda->rampup_steps = position_target->F * position_target->F / (uint32_t)(STEPS_PER_M_X * ACCELERATION / 960000.);
 //sersendf_P(PSTR("rampup calc %lu\n"), dda->rampup_steps);
 	dda->rampup_steps = 100000; // replace mis-calculation by a safe value
 // End of wrong section.
@@ -188,7 +188,7 @@ void dda_step_acceleration_ramping(dda_t *dda){ // {{{
 #endif
 
 #ifdef ACCELERATION_REPRAP
-void dda_create_acceleration_reprap(dda_t *dda){ // {{{
+void dda_create_acceleration_reprap(dda_t *dda, dda_target_t *position_start, dda_target_t *position_target){ // {{{
 	// pre-calculate move speed in millimeter microseconds per step minute for less math in interrupt context
 	// mm (distance) * 60000000 us/min / step (delta) = mm.us per step.min
 	//   note: um (distance) * 60000 == mm * 60000000
@@ -207,17 +207,17 @@ void dda_create_acceleration_reprap(dda_t *dda){ // {{{
 	uint32_t move_duration = ((dda->delta_um * 2400) / dda->delta_steps) * (F_CPU / 40000);
 	
 	// c is initial step time in IOclk ticks
-	dda->c            = (move_duration / dda->position_start.F) << 8;
+	dda->c            = (move_duration / position_start->F) << 8;
 	//dda->c            = MAX(dda->c, c_limit);
-	dda->reprap_end_c = (move_duration / dda->position_target.F) << 8;
+	dda->reprap_end_c = (move_duration / position_target->F) << 8;
 	//dda->reprap_end_c = MAX(dda->reprap_end_c, c_limit);
 
 	if (DEBUG_DDA && (debug_flags & DEBUG_DDA))
 		sersendf_P(PSTR(",md:%lu,c:%lu"), move_duration, dda->c >> 8);
 
 	if (dda->c != dda->reprap_end_c) {
-		uint32_t stF = dda->position_start.F / 4;
-		uint32_t enF = dda->position_target.F / 4;
+		uint32_t stF = position_start->F / 4;
+		uint32_t enF = position_target->F / 4;
 		// now some constant acceleration stuff, courtesy of http://www.embedded.com/columns/technicalinsights/56800129?printable=true
 		uint32_t ssq = (stF * stF);
 		uint32_t esq = (enF * enF);
@@ -292,28 +292,23 @@ void dda_step_acceleration_reprap(dda_t *dda){ // {{{
 	\param *dda pointer to a dda_queue_t entry to overwrite
 	\param *target the target position of this move
 
-	\ref dda->position_start the beginning position of this move
-
 	This function does a /lot/ of math. It works out directions for each axis, distance travelled, the time between the first and second step
 
 	It also pre-fills any data that the selected accleration algorithm needs, and can be pre-computed for the whole move.
 
 	This algorithm is probably the main limiting factor to print speed in terms of firmware limitations
 */
-uint8_t dda_create(dda_t *dda, dda_target_t *target) {
-	if(target->X == dda->position_start.X)
+uint8_t dda_create(dda_t *dda, dda_target_t *position_start, dda_target_t *position_target) {
+	if(position_target->X == position_start->X)
 		return 1; // ERR, nothing to move
 	
-	// we end at the passed target
-	dda->position_target = *target;
-	
-	dda_create_acceleration_none(dda);
+	dda_create_acceleration_none(dda, position_start, position_target);
 	#if defined ACCELERATION_REPRAP
-		dda_create_acceleration_reprap(dda);
+		dda_create_acceleration_reprap(dda, position_start, position_target);
 	#elif defined ACCELERATION_RAMPING
-		dda_create_acceleration_ramping(dda);
+		dda_create_acceleration_ramping(dda, position_start, position_target);
 	#elif defined ACCELERATION_TEMPORAL
-		dda_create_acceleration_temporal(dda);
+		dda_create_acceleration_temporal(dda, position_start, position_target);
 	#endif
 
 	//c_limit = ((dda->delta_um * 2400L) / dda->delta_steps * (F_CPU / 40000) / MAXIMUM_FEEDRATE_X) << 8; // wtf?
@@ -323,7 +318,6 @@ uint8_t dda_create(dda_t *dda, dda_target_t *target) {
 	dda->c = MAX(dda->c, c_limit);
 	
 	// next dda starts where we finish
-	dda->position_start = *target;
 	dda->status = DDA_READY;
 	return 0;
 }
@@ -332,9 +326,6 @@ uint8_t dda_create(dda_t *dda, dda_target_t *target) {
  */
 void dda_step(dda_t *dda, dda_order_t *order) {
 	switch(dda->status){
-		case DDA_FINISHED:
-			break;
-		
 		case DDA_READY:
 			#ifdef ACCELERATION_RAMPING
 				dda->move->ramping_step_no = 0;
@@ -366,6 +357,9 @@ void dda_step(dda_t *dda, dda_order_t *order) {
 			
 			order->step      = 1;                // ask for step
 			order->direction = dda->direction;   // in this direction
+			break;
+		
+		case DDA_FINISHED:
 			break;
 	}
 }
@@ -417,15 +411,18 @@ void dda_queue_step(dda_queue_t *dda_queue, dda_order_t *order) {
 }
 
 /// add a move to the movebuffer
-void dda_queue_enqueue(dda_queue_t *dda_queue, dda_target_t *t) {
+void dda_queue_enqueue(dda_queue_t *dda_queue, dda_target_t *start, dda_target_t *target) {
+	dda_t                  dda_new;
 	dda_t                 *dda_curr          = &dda_queue->movebuffer[ dda_queue_curr_space() ];
 	
-	if( dda_create(dda_curr, t) != 0) // null move
+	if( dda_create(&dda_new, start, target) != 0) // null move
 		return;
 	
 	if(DEBUG_DDA && (debug_flags & DEBUG_DDA))
-		sersendf_P(PSTR("dda_enqueue: x:%ld f:%ld\n"), t->X, t->F);
+		sersendf_P(PSTR("dda_enqueue: x:%ld f:%ld\n"), target->X, target->F);
 	
+	*dda_curr = dda_new;
+
 	while(dda_queue_push() != 0)
 		delay(WAITING_DELAY);
 }
