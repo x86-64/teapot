@@ -10,6 +10,10 @@ API void           axis_stepdir_init(axis_t *axis);
 API void           axis_stepdir_gcode(axis_t *axis, void *next_target);
 API axis_proto_t   axis_stepdir_proto;
 
+void axis_stepdir_step(axis_t *axis, dda_order_t *order){
+	
+}
+
 void axis_stepdir_timer(uint8_t id, void *paxis){
 	dda_order_t            order;
 	axis_t                *axis              = (axis_t *)paxis;
@@ -21,11 +25,9 @@ void axis_stepdir_timer(uint8_t id, void *paxis){
 	}while( order.callme == 1 && order.c == 0 ); // if dda request callback immediatly - do it
 	
 	// 2. check dda orders:
-	
 	// - dda ask to step?
-	if(order.step){
-		sersendf_P(PSTR("%c"), order.direction ? 'F' : 'B');
-	}
+	if(order.step)
+		axis_stepdir_step(axis, &order);
 	
 	// - dda ask to callback?
 	timer_charge(id,
@@ -33,6 +35,8 @@ void axis_stepdir_timer(uint8_t id, void *paxis){
 			order.c :    // for specified by dda time
 			IDLE_TIME    // nothing to do, idle wait
 	);
+	
+	//sersendf_P(PSTR("O%c s%d "), order.step ? (order.direction ? 'F' : 'B') : ' ',  order.c);
 }
 
 void axis_stepdir_init(axis_t *axis){
@@ -48,18 +52,22 @@ void axis_stepdir_init(axis_t *axis){
 }
 
 void axis_stepdir_gcode(axis_t *axis, void *next_target){
+	dda_target_t           start;
 	dda_target_t           target;
 	axis_stepdir_userdata *userdata          = (axis_stepdir_userdata *)axis->userdata;
 	
 	if(PARAMETER_SEEN(L_G)){
 		switch(PARAMETER_asint(L_G)){
 			case 0:	
+				start.X  = axis->runtime.position_curr;
+				start.F  = 0;                                // we start new gcode, so we assume that axis was stopped
+				                                             // if dda look-ahead need feedrate for some move - it will use values from queue
 				target.X = PARAMETER_asint(axis->letter);
 				target.F = axis->feedrate_max;
 				
-				dda_queue_enqueue(&userdata->queue, &target);
+				dda_queue_enqueue(&userdata->queue, &start, &target);
 				
-				//axis_runtime->position_curr = PARAMETER_asint(axis->letter);
+				axis->runtime.position_curr = target.X;
 				break;
 			// TODO position_min/max
 		}
