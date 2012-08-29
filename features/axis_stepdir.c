@@ -2,7 +2,8 @@
 #include "common.h"
 #include "axes.h"
 
-#define IDLE_TIME 100 MS
+#define IDLE_TIME      100 MS
+#define MIN_STEP_TIME    1 // US
 
 API typedef struct axis_stepdir_userdata         { uint8_t pin_step; uint8_t pin_dir; dda_queue_t queue; uint8_t timer_id; } axis_stepdir_userdata;
 
@@ -11,7 +12,10 @@ API void           axis_stepdir_gcode(axis_t *axis, void *next_target);
 API axis_proto_t   axis_stepdir_proto;
 
 void axis_stepdir_step(axis_t *axis, dda_order_t *order){
-	
+	WRITE(axis->pin_dir,  order->direction);
+	WRITE(axis->pin_step, 1);
+	delay_us(MIN_STEP_TIME);
+	WRITE(axis->pin_step, 0);
 }
 
 void axis_stepdir_timer(uint8_t id, void *paxis){
@@ -49,6 +53,10 @@ void axis_stepdir_init(axis_t *axis){
 	userdata->timer_id = timer_new();
 	timer_setup  (userdata->timer_id, &axis_stepdir_timer, axis);
 	timer_charge (userdata->timer_id, IDLE_TIME);
+
+	// init outputs
+	SET_OUTPUT(axis->pin_dir);
+	SET_OUTPUT(axis->pin_step);
 }
 
 void axis_stepdir_gcode(axis_t *axis, void *next_target){
