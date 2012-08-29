@@ -94,7 +94,8 @@ PROGID = avrisp
 PROGRAM = mendel
 
 FEATURES_ENABLED=$(shell find -L configs/ -iname '*.c') 
-SOURCES = $(FEATURES_ENABLED) core.c $(PROGRAM).c gcode_parse.c gcode_process.c dda.c dda_maths.c timer.c debug.c pinio.c crc.c delay.c utils.c queue.c
+ARDUINO_LIB=libs/arduino/pins_arduino.c libs/arduino/wiring.c libs/arduino/wiring_analog.c libs/arduino/wiring_digital.c libs/arduino/wiring_pulse.c libs/arduino/wiring_shift.c
+SOURCES = $(FEATURES_ENABLED) $(ARDUINO_LIB) core.c $(PROGRAM).c gcode_parse.c gcode_process.c dda.c dda_maths.c timer.c debug.c pinio.c crc.c delay.c utils.c queue.c
 
 ARCH = avr-
 CC = $(ARCH)gcc
@@ -104,7 +105,7 @@ OBJCOPY = $(ARCH)objcopy
 OPTIMIZE = -Os -ffunction-sections -finline-functions-called-once -mcall-prologues
 # OPTIMIZE = -O0
 CFLAGS = -g -Wall -Wstrict-prototypes $(OPTIMIZE) -mmcu=$(MCU_TARGET) $(DEFS) -std=gnu99 -funsigned-char -funsigned-bitfields -fpack-struct -fshort-enums -save-temps -Winline
-CFLAGS+= -I./ -I../ -I chips/ -I libs/ -I features/ # for features files
+CFLAGS+= -I./ -I../ -I chips/ -I libs/ -I libs/arduino/ -I features/ # for features files
 LDFLAGS = -Wl,--as-needed -Wl,--gc-sections
 LIBS = -lm
 LIBDEPS =
