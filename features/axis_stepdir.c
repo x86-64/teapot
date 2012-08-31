@@ -57,6 +57,26 @@ void axis_stepdir_init(axis_t *axis){
 	// init outputs
 	SET_OUTPUT(axis->pin_dir);
 	SET_OUTPUT(axis->pin_step);
+	
+	// X Stepper
+	WRITE(X_STEP_PIN, 0);	SET_OUTPUT(X_STEP_PIN);
+	WRITE(X_DIR_PIN,  0);	SET_OUTPUT(X_DIR_PIN);
+	#ifdef X_MIN_PIN
+		SET_INPUT(X_MIN_PIN);
+		#ifdef USE_INTERNAL_PULLUPS
+			WRITE(X_MIN_PIN, 1);
+		#else
+			WRITE(X_MIN_PIN, 0);
+		#endif
+	#endif
+	#ifdef X_MAX_PIN
+		SET_INPUT(X_MAX_PIN);
+		#ifdef USE_INTERNAL_PULLUPS
+			WRITE(X_MAX_PIN, 1);
+		#else
+			WRITE(X_MAX_PIN, 0);
+		#endif
+	#endif
 }
 
 void axis_stepdir_gcode(axis_t *axis, void *next_target){
