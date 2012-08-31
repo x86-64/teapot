@@ -1,6 +1,5 @@
 #define FEATURE
 #include	"common.h"
-#include	"delay.h"
 
 API void time_init(void);
 
@@ -18,11 +17,11 @@ void time_gcode_process(void *next_target){
 				M400_WAIT();
 				// delay
 				if (PARAMETER_SEEN(L_P)) {
-					int32_t delay;
+					int32_t delay_time;
 					
-					for (delay = PARAMETER_asint(L_P); delay > 0; delay--){
+					for (delay_time = PARAMETER_asint(L_P); delay_time > 0; delay_time--){
 						core_emit(EVENT_TICK, 0);
-						delay_ms(1);
+						delay(1);
 					}
 				}
 				break;

@@ -1,5 +1,4 @@
 #include "common.h"
-#include "delay.h"
 
 static char ps_is_on = 0;
 
@@ -9,8 +8,8 @@ volatile uint8_t	psu_timeout = 0;
 void power_on(void) {
 	if (ps_is_on == 0) {
 		#ifdef	PS_ON_PIN
-			WRITE(PS_ON_PIN, 0);
-			SET_OUTPUT(PS_ON_PIN);
+			//FIXME WRITE(PS_ON_PIN, 0);
+			//SET_OUTPUT(PS_ON_PIN);
 			_delay_ms(500);
 		#endif
 		ps_is_on = 1;
@@ -21,7 +20,7 @@ void power_on(void) {
 
 void power_off(void) {
 	#ifdef	PS_ON_PIN
-		SET_INPUT(PS_ON_PIN);
+		// FIXME SET_INPUT(PS_ON_PIN);
 	#endif
 
 	ps_is_on = 0;

@@ -64,8 +64,8 @@ typedef struct heater_runtime_t {
 #undef DEFINE_HEATER
 #define        DEFINE_HEATER(name, pin) { &(pin ## _WPORT), pin ## _PIN, (pin ## _PWM) },
 const heater_t           heaters[] = {
-	DEFINE_HEATER(bed, PB3)
-	DEFINE_HEATER(bed, PB4)
+/* FIXME	DEFINE_HEATER(bed, PB3)
+	DEFINE_HEATER(bed, PB4)*/
 };
 #define NUM_HEATERS     (sizeof(heaters) / sizeof(heaters[0])) 
 const uint8_t            heaters_count  = NUM_HEATERS;

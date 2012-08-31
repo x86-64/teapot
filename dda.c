@@ -18,7 +18,6 @@
 #include	"pinio.h"
 #include	"common.h"
 
-#include	"delay.h"
 #include	"memory_barrier.h"
 
 

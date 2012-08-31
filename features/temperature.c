@@ -29,8 +29,6 @@ API void temp_print(void);
 
 #include	<stdlib.h>
 
-#include	"arduino.h"
-#include	"delay.h"
 #include	"debug.h"
 
 

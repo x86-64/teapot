@@ -95,7 +95,7 @@ PROGRAM = mendel
 
 FEATURES_ENABLED=$(shell find -L configs/ -iname '*.c') 
 ARDUINO_LIB=libs/arduino/pins_arduino.c libs/arduino/wiring.c libs/arduino/wiring_analog.c libs/arduino/wiring_digital.c libs/arduino/wiring_pulse.c libs/arduino/wiring_shift.c
-SOURCES = $(FEATURES_ENABLED) $(ARDUINO_LIB) core.c $(PROGRAM).c gcode_parse.c gcode_process.c dda.c dda_maths.c timer.c debug.c pinio.c crc.c delay.c utils.c queue.c
+SOURCES = $(FEATURES_ENABLED) $(ARDUINO_LIB) core.c $(PROGRAM).c gcode_parse.c gcode_process.c dda.c dda_maths.c timer.c debug.c pinio.c crc.c utils.c queue.c
 
 ARCH = avr-
 CC = $(ARCH)gcc
