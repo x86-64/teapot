@@ -141,7 +141,6 @@ void axis_gcode_universal(axis_t *axis, void *next_target){
 			case 401:
 				//? --- M401 - Show debug info
 				axis_debug_print(axis);
-				serial_writechar('\n');
 				break;
 			#endif
 		}
