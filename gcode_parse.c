@@ -126,7 +126,7 @@ void gcode_parse_char(uint8_t c){
 		serial_writechar(orig_c);
 redo:;
 	if (DEBUG_LEXER && (debug_flags & DEBUG_LEXER))
-		sersendf_P(PSTR("Gcode parser state: %d, char: %c, type: %d\n"), gcode_parser_state, c, type);
+		sersendf_P(PSTR("Gcode parser state: %d, char: %c, type: %d\r\n"), gcode_parser_state, c, type);
 	
 	switch(gcode_parser_state){
 		case S_PARSE_CHAR: // wait for parameter name mode
@@ -160,10 +160,12 @@ redo:;
 					if (DEBUG_LEXER && (debug_flags & DEBUG_LEXER)){
 						serial_writestr_P(PSTR("Gcode parsed: "));
 						gcode_debug_print(&next_gcode);
+						serial_writechar('\r');
 						serial_writechar('\n');
 					}
 					
 					process_gcode_command(&next_gcode);
+					serial_writechar('\r');
 					serial_writechar('\n');
 					
 					// reset variables
