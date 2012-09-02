@@ -348,8 +348,10 @@ void dda_step(dda_t *dda, dda_order_t *order) {
 			#endif
 			
 			// If there are no steps left, we have finished.
-			if (dda->delta_steps == 0)
+			if (dda->delta_steps == 0){
 				dda->status = DDA_FINISHED;
+				order->done = 1;
+			}
 			
 			order->callme    = 1;                // ask for call
 			order->c         = dda->c;           // next time to call
@@ -391,6 +393,7 @@ void dda_queue_step(dda_queue_t *dda_queue, dda_order_t *order) {
 	dda_t                 *dda_curr          = &dda_queue->movebuffer[ dda_queue_curr_item() ];
 	
 	// initialize order to empty value
+	order->done      = 0;
 	order->callme    = 0;
 	order->step      = 0;
 	

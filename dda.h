@@ -93,6 +93,7 @@ typedef struct dda_queue_t {
 typedef struct dda_order_t {
 	uint8_t                callme    :1;  ///< make a call in given time
 	uint8_t                step      :1;  ///< make a step
+	uint8_t                done      :1;  ///< we are done!
 	
 	uint32_t               c;             ///< time until next step
 	uint8_t                direction :1;  ///< direction to step
