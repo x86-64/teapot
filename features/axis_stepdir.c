@@ -77,10 +77,12 @@ void axis_stepdir_init(axis_t *axis){
 	// init outputs
 	pinMode(userdata->pin_dir,    OUTPUT);
 	pinMode(userdata->pin_step,   OUTPUT);
-	if(userdata->pin_enable)
-		pinMode(userdata->pin_enable, OUTPUT);
 	digitalWrite(userdata->pin_dir,  LOW);
 	digitalWrite(userdata->pin_step, LOW);
+	if(userdata->pin_enable){
+		pinMode(userdata->pin_enable, OUTPUT);
+		axis_stepdir_enable(axis, 0);
+	}
 }
 
 void axis_stepdir_gcode(axis_t *axis, void *next_target){
