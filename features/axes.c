@@ -31,6 +31,9 @@ void axis_gcode_universal(axis_t *axis, void *next_target){
 		switch(PARAMETER_asint(L_G)){
 			case 0: // G0,1 movements
 			case 1:
+				if(!PARAMETER_SEEN(axis->letter))
+					break;
+
 				// convert coordinate to um with respect to current measurment mode
 				if(axis->runtime.inches){
 					PARAMETER_SET(next_target, axis->letter,
