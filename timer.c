@@ -34,18 +34,6 @@ uint32_t	delay_time;
 uint32_t	step_extra_time = 0;
 #endif /* ACCELERATION_TEMPORAL */
 
-/// every time our clock fires, we increment this so we know when 10ms has elapsed
-uint8_t						clock_counter_10ms = 0;
-/// keep track of when 250ms has elapsed
-uint8_t						clock_counter_250ms = 0;
-/// keep track of when 1s has elapsed
-uint8_t						clock_counter_1s = 0;
-
-/// flags to tell main loop when above have elapsed
-volatile uint8_t	clock_flag_10ms = 0;
-volatile uint8_t	clock_flag_250ms = 0;
-volatile uint8_t	clock_flag_1s = 0;
-
 void timer_hardware_set(uint32_t delay);
 
 void timers_gcode(void *next_target){
@@ -75,10 +63,6 @@ void timers_init()
 	TCCR1A = 0;
 	// Normal Mode
 	TCCR1B = MASK(CS10);
-	// set up "clock" comparator for first tick
-	OCR1B = TICK_TIME & 0xFFFF;
-	// enable interrupt
-	TIMSK1 = MASK(OCIE1B);
 	
 	core_register(EVENT_GCODE_PROCESS, &timers_gcode);
 }
@@ -120,40 +104,6 @@ redo:;
 	}
 	if(min != 0xFFFFFFFF)
 		timer_hardware_set(min);
-}
-
-/// comparator B is the system clock, happens every TICK_TIME
-ISR(TIMER1_COMPB_vect) {
-	// save status register
-	uint8_t sreg_save = SREG;
-
-	// set output compare register to the next clock tick
-	OCR1B = (OCR1B + TICK_TIME) & 0xFFFF;
-
-	/*
-	clock stuff
-	*/
-	clock_counter_10ms += TICK_TIME_MS;
-	if (clock_counter_10ms >= 10) {
-		clock_counter_10ms -= 10;
-		clock_flag_10ms = 1;
-
-		clock_counter_250ms++;
-		if (clock_counter_250ms >= 25) {
-			clock_counter_250ms = 0;
-			clock_flag_250ms = 1;
-
-			clock_counter_1s++;
-			if (clock_counter_1s >= 4) {
-				clock_counter_1s = 0;
-				clock_flag_1s = 1;
-			}
-		}
-	}
-
-	// restore status register
-	MEMORY_BARRIER();
-	SREG = sreg_save;
 }
 
 /// comparator A is the step timer. It has higher priority then B.
@@ -205,7 +155,7 @@ void timer_hardware_set(uint32_t delay)
 	#endif /* ACCELERATION_TEMPORAL */
 
 	// re-enable clock interrupt in case we're recovering from emergency stop
-	TIMSK1 |= MASK(OCIE1B);
+	//TIMSK1 |= MASK(OCIE1B);
 
 	// An interrupt would make all our timing calculations invalid,
 	// so stop that here.
