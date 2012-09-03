@@ -21,7 +21,7 @@ void time_gcode_process(void *next_target){
 					
 					for (delay_time = PARAMETER_asint(L_P); delay_time > 0; delay_time--){
 						core_emit(EVENT_TICK, 0);
-						delay(1);
+						_delay_ms(1);
 					}
 				}
 				break;
