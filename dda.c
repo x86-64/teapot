@@ -311,10 +311,10 @@ uint8_t dda_create(dda_t *dda, dda_target_t *position_start, dda_target_t *posit
 	#endif
 
 	//c_limit = ((dda->delta_um * 2400L) / dda->delta_steps * (F_CPU / 40000) / MAXIMUM_FEEDRATE_X) << 8; // wtf?
-	uint32_t c_limit = (F_CPU / um_to_steps_x(MAXIMUM_FEEDRATE_X)) * 10000L;
+	//uint32_t c_limit = (F_CPU / um_to_steps_x(MAXIMUM_FEEDRATE_X)) * 10000L;
 	
 	// snap timer value to minimal
-	dda->c = MAX(dda->c, c_limit);
+	//dda->c = MAX(dda->c, c_limit);
 	
 	// next dda starts where we finish
 	dda->status = DDA_READY;
@@ -421,11 +421,11 @@ void dda_queue_enqueue(dda_queue_t *dda_queue, dda_target_t *start, dda_target_t
 		return;
 	
 	if(DEBUG_DDA && (debug_flags & DEBUG_DDA))
-		sersendf_P(PSTR("dda_enqueue: x:%ld f:%ld\n"), target->X, target->F);
+		sersendf_P(PSTR("dda_enqueue: x:%ld f:%ld, slot:%d\r\n"), target->X, target->F, dda_queue_curr_space() );
 	
 	*dda_curr = dda_new;
 
 	while(dda_queue_push() != 0)
-		delay(WAITING_DELAY);
+		_delay_ms(WAITING_DELAY);
 }
 
