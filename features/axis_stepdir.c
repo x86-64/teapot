@@ -59,8 +59,6 @@ void axis_stepdir_timer(uint8_t id, void *paxis){
 	}else{
 		timer_charge(id, IDLE_TIME); // nothing to do, idle mode
 	}
-	
-	//sersendf_P(PSTR("O%c s%d "), order.step ? (order.direction ? 'F' : 'B') : ' ',  order.c);
 }
 
 void axis_stepdir_init(axis_t *axis){
